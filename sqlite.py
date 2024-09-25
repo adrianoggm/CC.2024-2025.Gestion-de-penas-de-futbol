@@ -1,5 +1,7 @@
 import sqlite3
 
+"""ACTUALMENTE ESTÁ EN PRUEBAS SOLO GENERA LA DB POSTERIORMENTE DEBERÁ DE FUNCIONAR COMO LISTENER DE LOS MÉTODOS QUE REALIZARÁN LAS CLASES ADMIN Y USUARIO."""
+
 conn=sqlite3.connect("Gestion_Penas.db")
 c=conn.cursor()
 c.execute("PRAGMA foreign_keys = ON;")
