@@ -5,7 +5,7 @@ Este repositorio contiene el proyecto de gestión de peñas de fútbol para la a
 ## Descripción del Proyecto
 
 El objetivo del proyecto es desarrollar un sistema para la **gestión de peñas de fútbol**, donde se podrá identificar y gestionar tres tipos de usuarios: **Administrador de la Peña**, **Usuario/Jugador** y **Usuario no registrado**.
-
+En la actualidad existen multitud de aplicaciones de ligas para equipos pero apenas ninguna para peñas deportivas o torneos individuales. Esta app busca dar una respuesta este aspecto basándose en la siguiente propuesta:
 ### Tipos de Usuarios
 
 1. **Administrador de la Peña**:
