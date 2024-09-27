@@ -1,10 +1,10 @@
-# Proyecto de Gestión de Peñas de Fútbol (2024-2025)
+# Proyecto de *gestión de peñas y ligas individuales deportivas (2024-2025)
 
-Este repositorio contiene el proyecto de gestión de peñas de fútbol para la asignatura de **Cloud Computing** del máster de la UGR.
+Este repositorio contiene el proyecto de *gestión de peñas y ligas individuales deportivas para la asignatura de **Cloud Computing** del máster de la UGR.
 
 ## Descripción del Proyecto
 
-El objetivo del proyecto es desarrollar un sistema para la **gestión de peñas de fútbol**, donde se podrá identificar y gestionar tres tipos de usuarios: **Administrador de la Peña**, **Usuario/Jugador** y **Usuario no registrado**.
+El objetivo del proyecto es desarrollar un sistema para la **gestión de peñas y ligas individuales deportivas**, donde se podrá identificar y gestionar tres tipos de usuarios: **Administrador de la Peña**, **Usuario/Jugador** y **Usuario no registrado**.
 En la actualidad existen multitud de aplicaciones de ligas para equipos pero apenas ninguna para peñas deportivas o torneos individuales. Esta app busca dar una respuesta este aspecto basándose en la siguiente propuesta:
 ### Tipos de Usuarios
 
