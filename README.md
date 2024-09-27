@@ -1,41 +1,88 @@
-# CC.2024-2025.Gestion de peñas de futbol
- Repositorio con el proyecto de gestión de peñas de fútbol para la asignatura Cloud Computing master UGR
+# Proyecto de Gestión de Peñas de Fútbol (2024-2025)
 
--Se va a realizar un sistema de gestión de peñas de fútbol. 
-En el se podrá identificar los siguientes usuarios: Administrador de la Peña, Usuario/Jugador, Usuario no registrado. 
-El Administrador de la Peña será capaz de usar todos los elementos de los que dispondrá la aplicación, adicionalmente será el encargado de parametrizar e insertar los resultados cada jornada este podrá entrar mediante un nombre de usuario contraseña y código de peña.
-El Jugador : será capaz de editar su nombre en la peña su foto y descripción.Nombre de usuario contraseña y código de peña. Además estos usuarios podrán aportar la valoración del partido. 
-Esto servirá para la actualización de las estadísticas y junto con los porcentajes de victorias ofrecer un draft equilibrado para el siguiente partido.
+Este repositorio contiene el proyecto de gestión de peñas de fútbol para la asignatura de **Cloud Computing** del máster de la UGR.
 
-Usuario no registrado no necesita de login, únicamente mediante el código de peña será capaz de acceder a la clasificación, historial de partidos , estadísticas de goleadores y perfil de los jugadores .
+## Descripción del Proyecto
 
-La peña contará con un número indeterminado de jugadores añadidos por el Administrador de la Peña, cada Jugador será único para cada peña indistíntamente que exista en varias peñas.                                                         
--Será posible realizar de acuerdo a los jugadores "convocados" un draft recomendado de acuerdo a porcentaje de victorias y valoración de los atributos del jugador. 
--Será posible empezar una nueva temporada importando los jugadores que existían previamente.                                                                                                                                                  
--Será posible tener un historial para poder ver peñas pasadas.                                                                                                                                                                                
--Mostrar estadísticas interesantes y ordenadas.                                                                                                                                                                                               
--Un jugador podrá ser capaz de visualizar a que peñas está adscrito. Y sus estadísticas en cada una de ellas.
+El objetivo del proyecto es desarrollar un sistema para la **gestión de peñas de fútbol**, donde se podrá identificar y gestionar tres tipos de usuarios: **Administrador de la Peña**, **Usuario/Jugador** y **Usuario no registrado**.
 
-La idea es tener una arquitectura que asegure la modularidad,funcionamiento y fiabilidad de cara a la gestión de la aplicación web y sus datos.
-Se plantea una arquitectura inicial que presentará 3 componentes software. Una con la aplicación web, Y otra con la base de datos y su duplicada.
-Lo que hace un total de 1+2 =3.
+### Tipos de Usuarios
 
-Como idea principal nos basaremos en Flask para la creación del entorno web y de SQlite para la BD
-## Historias de usuario
-Para cada microservicio se ha definido un *milestone*. El primer *milestone* es para el [Administrador]de la peña y sus funciones más básicas el cual será capaz de :
-- [[HU] Como administrador quiero poder darme de alta .]
-- [[HU] Como administrador quiero dar de alta una peña.]
-- [[HU] Como administrador quiero modificar una peña.]
-- [[HU] Como administrador quiero dar de alta a un jugador de la peña.]
-- Como segundo *milestone* se define las funciones más avanzadas del administrador
-- [[HU] Como administrador quiero planificar un partido con su alineación.]
-- [[HU] Como administrador quiero poder añadir/modificar el resultado de un partido .]
-- [[HU] Como administrador quiero poder añadir/modificar las estadísticas de un jugador de un partido .]
-- [[HU] Como administrador quiero poder añadir/modificar deudas de los jugadores de la peña.]
-El tercer *milestone* es para los [Usuarios] en el se plantean las actividades que puede realizar un usuario normal que también se extienden al usuario.
-- [[HU] Como usuario quiero poder darme de alta .]
-- [[HU] Como usuario quiero poder ver la tabla de clasificación.]
-- [[HU] Como usuario quiero poder ver la tabla de estadísticas de los jugadores.]
-- [[HU] Como usuario quiero poder editar mi foto de perfil y mi apodo.]
-- [[HU] Como usuario quiero poder consultar los resultados de los partidos.]
-- [[HU] Como usuario quiero poder consultar mi deuda de las peñas a las que estoy asociado.]
+1. **Administrador de la Peña**:
+   - Tendrá acceso completo a todas las funcionalidades de la aplicación.
+   - Será el responsable de parametrizar e insertar los resultados de cada jornada.
+   - Para acceder a la plataforma, el administrador debe iniciar sesión con su **nombre de usuario**, **contraseña** y un **código de peña**.
+   - Funciones principales:
+     - Gestionar los jugadores de la peña.
+     - Actualizar resultados de los partidos.
+     - Configurar la peña y realizar ajustes generales.
+
+2. **Usuario/Jugador**:
+   - Puede editar su perfil personal, incluyendo su **nombre**, **foto** y **descripción**.
+   - Requiere nombre de usuario, contraseña y código de peña para iniciar sesión.
+   - Los jugadores pueden aportar su valoración del partido, lo que ayudará a actualizar estadísticas y equilibrar los equipos para futuros partidos mediante un sistema de **draft**.
+
+3. **Usuario no registrado**:
+   - No necesita iniciar sesión.
+   - Podrá acceder a información pública de la peña mediante el **código de peña**, incluyendo:
+     - Clasificación de la peña.
+     - Historial de partidos.
+     - Estadísticas de goleadores.
+     - Perfiles públicos de los jugadores.
+
+### Funcionalidades del Sistema
+
+- **Gestión de jugadores**: Los jugadores son añadidos por el administrador, y cada jugador es único en cada peña (aunque puede estar en varias peñas diferentes).
+- **Draft recomendado**: Basado en las valoraciones y el porcentaje de victorias de los jugadores convocados.
+- **Historial de temporadas**: Se podrán importar jugadores de temporadas anteriores y acceder a un historial de temporadas pasadas.
+- **Estadísticas detalladas**: El sistema mostrará estadísticas interesantes y organizadas de los jugadores y equipos.
+- **Multipeña**: Un jugador puede ver a qué peñas está adscrito y sus estadísticas en cada una de ellas.
+
+### Arquitectura del Sistema
+
+La arquitectura propuesta para garantizar la modularidad, fiabilidad y rendimiento de la aplicación web incluirá tres componentes principales:
+1. Aplicación web (basada en **Flask**).
+2. Base de datos principal (usando **SQLite**).
+3. Base de datos duplicada para asegurar la disponibilidad de los datos.
+
+## Historias de Usuario (User Stories)
+
+Para cada microservicio del proyecto se ha definido un **milestone**.
+
+### Primer Milestone: Funciones Básicas del Administrador
+- **[HU-01]** Como administrador quiero poder darme de alta en el sistema.
+- **[HU-02]** Como administrador quiero dar de alta una peña para gestionar.
+- **[HU-03]** Como administrador quiero modificar la información de una peña.
+- **[HU-04]** Como administrador quiero dar de alta a un jugador en la peña.
+
+### Segundo Milestone: Funciones Avanzadas del Administrador
+- **[HU-05]** Como administrador quiero planificar un partido y definir su alineación.
+- **[HU-06]** Como administrador quiero añadir o modificar el resultado de un partido.
+- **[HU-07]** Como administrador quiero añadir o modificar las estadísticas de los jugadores tras un partido.
+- **[HU-08]** Como administrador quiero poder gestionar las deudas de los jugadores.
+
+### Tercer Milestone: Funciones del Usuario
+- **[HU-09]** Como usuario quiero darme de alta en el sistema.
+- **[HU-10]** Como usuario quiero ver la tabla de clasificación de la peña.
+- **[HU-11]** Como usuario quiero ver las estadísticas de los jugadores de la peña.
+- **[HU-12]** Como usuario quiero editar mi foto de perfil y apodo.
+- **[HU-13]** Como usuario quiero consultar los resultados de los partidos jugados.
+- **[HU-14]** Como usuario quiero consultar mi deuda en las peñas a las que estoy asociado.
+
+## Tecnologías Utilizadas
+
+- **Flask** para la creación de la aplicación web.
+- **SQLite** como base de datos relacional para el almacenamiento de datos.
+- **HTML/CSS** para la creación de la interfaz de usuario.
+- **Python** para la lógica de negocio y los microservicios.
+
+## Arquitectura
+
+La arquitectura está diseñada para garantizar modularidad y fiabilidad. Se basa en una arquitectura de 3 componentes:
+1. **Aplicación Web (Flask)**.
+2. **Base de Datos (SQLite)**.
+3. **Base de Datos Duplicada** para respaldo.
+
+---
+
+Este proyecto tiene como objetivo garantizar una gestión eficiente y equilibrada de las peñas de fútbol, ofreciendo un sistema dinámico, intuitivo y accesible tanto para administradores como para jugadores y usuarios no registrados.
