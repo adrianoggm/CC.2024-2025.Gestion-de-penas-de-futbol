@@ -1,5 +1,5 @@
 import sqlite3
-
+from werkzeug.security import check_password_hash, generate_password_hash
 """ACTUALMENTE ESTÁ EN PRUEBAS SOLO GENERA LA DB POSTERIORMENTE DEBERÁ DE FUNCIONAR COMO LISTENER DE LOS MÉTODOS QUE REALIZARÁN LAS CLASES ADMIN Y USUARIO."""
 
 conn=sqlite3.connect("Gestion_Penas.db")
@@ -73,6 +73,14 @@ c.execute(""" CREATE TABLE IF NOT EXISTS EJUGADOR (
           FOREIGN KEY (Idjugador) REFERENCES JUGADOR(Idjugador) ON UPDATE CASCADE ON DELETE CASCADE
           
           )""")
+#c.execute("DELETE FROM users WHERE username = ?", ('adrianoggm',))
+c.execute(""" CREATE TABLE IF NOT EXISTS users (
+    username TEXT PRIMARY KEY,         -- Nombre de usuario único
+    password TEXT NOT NULL,                -- Contraseña almacenada como hash
+    name TEXT NOT NULL,                     -- Nombre del usuario
+    Idjugador INTEGER,                      --Será 0 para los admins
+    FOREIGN KEY (Idjugador) REFERENCES JUGADOR(Idjugador) ON UPDATE CASCADE ON DELETE CASCADE
+)""")
 
 #c.execute("INSERT INTO PENA (Nombre,Admin) VALUES ('Generalife','Genadmin')")
 #c.execute("INSERT INTO PENA VALUES ('0','Generalife','Genadmin')")
@@ -81,8 +89,11 @@ c.execute(""" CREATE TABLE IF NOT EXISTS EJUGADOR (
 #c.execute("INSERT INTO JUGADORPENA VALUES ('1','1','Adri jr','ATACANTE')")
 #c.execute("INSERT INTO TEMPORADA(Fecha) VALUES ('2024/2025')")
 #c.execute("INSERT INTO JUGADORTEMPORADA(Idjugador,Idpena,Idt) VALUES ('1','1','1')")
+#password = generate_password_hash('1234')
+#print(password)
+#c.execute("INSERT INTO users(username,password,name,idjugador) VALUES (?, ?, ?, ?)",('adrianoggm', password, 'Adriano', '1'))
 conn.commit()
-c.execute("SELECT * FROM PENA ")
+c.execute("SELECT * FROM users ")
 penas=c.fetchall()
 print(penas)
 conn.close()
