@@ -14,16 +14,15 @@ def get_db_connection():
 # Ruta de prueba
 @app.route('/', methods=['GET'])
 def ping():
-    return jsonify({"response": "Hello world"})
+    return render_template('index.html')
 
 # Ruta para mostrar todos los usuarios (solo como referencia)
-@app.route('/users')
+@app.route('/registration')
 def usersHandler():
     conn = get_db_connection()
     users = conn.execute('SELECT * FROM users').fetchall()
     conn.close()
     return jsonify([dict(user) for user in users])
-
 # Ruta de login
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -35,15 +34,13 @@ def login():
         conn = get_db_connection()
         user = conn.execute('SELECT * FROM users WHERE username = ?', (username,)).fetchone()
         conn.close()
-        print(user[0])
-        print(user[1])
         # Convertir el objeto Row en un diccionario
         if user:
             user = dict(user)
-        print(user['password'],password)
+       
         # Verificar si el usuario existe y la contraseña es correcta
         if user and check_password_hash(user['password'], password):
-            print("entras")
+            
             return f"¡Bienvenido, {user['name']}!"
         else:
             flash('Usuario o contraseña incorrectos. Inténtalo de nuevo.')
