@@ -9,12 +9,11 @@ Esto servirá para la actualización de las estadísticas y junto con los porcen
 
 Usuario no registrado no necesita de login, únicamente mediante el código de peña será capaz de acceder a la clasificación, historial de partidos , estadísticas de goleadores y perfil de los jugadores .
 
-La peña contará con un número indeterminado de jugadores añadidos por el Administrador de la Peña, cada Jugador será único para cada peña indistíntamente que exista en varias peñas.
--Será posible realizar de acuerdo a los jugadores "convocados" un draft recomendado de acuerdo a porcentaje de victorias y valoración de los atributos del jugador.
--Será posible empezar una nueva temporada importando los jugadores que existían previamente.
--Será posible tener un historial para poder ver peñas pasadas.
--Mostrar estadísticas interesantes y ordenadas.
-
+La peña contará con un número indeterminado de jugadores añadidos por el Administrador de la Peña, cada Jugador será único para cada peña indistíntamente que exista en varias peñas.                                                         
+-Será posible realizar de acuerdo a los jugadores "convocados" un draft recomendado de acuerdo a porcentaje de victorias y valoración de los atributos del jugador. 
+-Será posible empezar una nueva temporada importando los jugadores que existían previamente.                                                                                                                                                  
+-Será posible tener un historial para poder ver peñas pasadas.                                                                                                                                                                                
+-Mostrar estadísticas interesantes y ordenadas.                                                                                                                                                                                               
 -Un jugador podrá ser capaz de visualizar a que peñas está adscrito. Y sus estadísticas en cada una de ellas.
 
 La idea es tener una arquitectura que asegure la modularidad,funcionamiento y fiabilidad de cara a la gestión de la aplicación web y sus datos.
