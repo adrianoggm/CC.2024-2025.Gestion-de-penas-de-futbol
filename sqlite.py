@@ -66,6 +66,7 @@ c.execute(""" CREATE TABLE IF NOT EXISTS EJUGADOR (
           Idjugador INTEGER,
           Goles INTEGER DEFAULT 0,
           Asistencias INTEGER DEFAULT 0,
+          Val REAL DEFAULT 5 CHECK(Calidad BETWEEN 0 AND 10),
           PRIMARY KEY (Ide,Idp,Idjugador),
           FOREIGN KEY (Idp) REFERENCES PARTIDO(Idp) ON UPDATE CASCADE ON DELETE CASCADE,
           FOREIGN KEY (Ide) REFERENCES EQUIPO(Ide) ON UPDATE CASCADE ON DELETE CASCADE,
@@ -81,7 +82,7 @@ c.execute(""" CREATE TABLE IF NOT EXISTS EJUGADOR (
 #c.execute("INSERT INTO TEMPORADA(Fecha) VALUES ('2024/2025')")
 #c.execute("INSERT INTO JUGADORTEMPORADA(Idjugador,Idpena,Idt) VALUES ('1','1','1')")
 conn.commit()
-c.execute("SELECT * FROM EJUGADOR ")
+c.execute("SELECT * FROM PENA ")
 penas=c.fetchall()
 print(penas)
 conn.close()
