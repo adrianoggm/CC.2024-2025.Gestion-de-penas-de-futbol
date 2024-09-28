@@ -1,4 +1,4 @@
-#🏀Proyecto de gestión de peñas y ligas individuales deportivas (2024-2025)⚽
+# Proyecto de gestión de peñas y ligas individuales deportivas (2024-2025)⚽🏀
 > Versión 0.1
 
 Este repositorio contiene el proyecto de *gestión de peñas y ligas individuales deportivas para la asignatura de **Cloud Computing** del máster de la UGR.
