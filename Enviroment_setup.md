@@ -24,7 +24,7 @@ $ git config --global user.name "Adriano"
 $ git config --global user.email adrianoggm@correo.ugr.es
 ```
 
-![setup](/docs/images/usermail.png)
+![usermail](/docs/images/usermail.png)
 
 ### Posteriormente clonamos el repositorio:
 ```
@@ -39,4 +39,4 @@ Para ello una vez autenticado será posible mediante la selección de la opción
 ![setup](/docs/images/Clonegit.png)
 
 Una vez clonado recomendamos crear una o varias ramas /dev en la que se realizará el desarrollo una rama main con el código funcional.
-![setup](/docs/images/Createbranch.png)
+![rama](/docs/images/Createbranch.png)
