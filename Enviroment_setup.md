@@ -24,19 +24,19 @@ $ git config --global user.name "Adriano"
 $ git config --global user.email adrianoggm@correo.ugr.es
 ```
 
-![setup](/docs/img/usermail.png)
+![setup](/docs/images/usermail.png)
 
 ### Posteriormente clonamos el repositorio:
 ```
 $ git clone https://github.com/adrianoggm/CC.2024-2025.Gestion-de-penas-de-futbol
 $ git pull origin master`
 ```
-![setup](/docs/img/Clone.png)
+![setup](/docs/images/Clone.png)
 
 En su defecto es posible realizar todo esto mediante GitHub Desktop la app de escritorio.
 Para ello una vez autenticado será posible mediante la selección de la opción clone repository acceder al proyecto creado.
 
-![setup](/docs/img/Clonegit.png)
+![setup](/docs/images/Clonegit.png)
 
 Una vez clonado recomendamos crear una o varias ramas /dev en la que se realizará el desarrollo una rama main con el código funcional.
-![setup](/docs/img/Createbranch.png)
+![setup](/docs/images/Createbranch.png)
