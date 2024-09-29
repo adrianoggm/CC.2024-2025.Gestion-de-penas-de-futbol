@@ -84,7 +84,7 @@ La arquitectura está diseñada para garantizar modularidad y fiabilidad. Se bas
 2. **Base de Datos (SQLite)**.
 3. **Base de Datos Duplicada** para respaldo.
 
-![setup](docs/images/Arquictectura.png)
+![setup](../images/Arquitectura.PNG)
 ---
 
 Este proyecto tiene como objetivo garantizar una gestión eficiente y equilibrada de las peñas de fútbol, ofreciendo un sistema dinámico, intuitivo y accesible tanto para administradores como para jugadores y usuarios no registrados.
