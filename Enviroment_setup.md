@@ -32,3 +32,11 @@ $ git clone https://github.com/adrianoggm/CC.2024-2025.Gestion-de-penas-de-futbo
 $ git pull origin master`
 ```
 ![setup](/docs/img/Clone.png)
+
+En su defecto es posible realizar todo esto mediante GitHub Desktop la app de escritorio.
+Para ello una vez autenticado será posible mediante la selección de la opción clone repository acceder al proyecto creado.
+
+![setup](/docs/img/Clonegit.png)
+
+Una vez clonado recomendamos crear una o varias ramas /dev en la que se realizará el desarrollo una rama main con el código funcional.
+![setup](/docs/img/Createbranch.png)
