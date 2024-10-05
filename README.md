@@ -9,7 +9,7 @@ En la actualidad existen multitud de aplicaciones de ligas para equipos pero ape
 ## 📝: Descripción del problema
 -Mediante el siguiente enlace se accede a la documentación donde se explica el alcance, objetivos, arquitectura, licencias y entorno usados:
 
- - [Hito 0](docs/hitos/hito0.md) .
+ - [Hito 1](docs/hitos/hito1.md) .
 
 ---
 
