@@ -41,10 +41,13 @@ Para ello una vez autenticado será posible mediante la selección de la opción
 Una vez clonado recomendamos crear una o varias ramas /dev en la que se realizará el desarrollo una rama main con el código funcional.
 ![rama](/docs/images/Createbranch.PNG)
 
+### Configuración Inicial de Python:
+![entorno](/docs/images/python.PNG)
 
 Ahora vamos a crear nuestro entorno de programación en python para ello instalamos nuestra versión deseada de python mediante el enlace :
-nosotros hemos elegido Python 3.12.5 como versión inicial de desarrollo de nuestro proyecto.
+nosotros hemos elegido Python 3.12.5 como versión inicial de desarrollo de nuestro proyecto. Seguiremos los pasos de [la guía de instalación de entornos virtuales para python](https://docs.python.org/es/3/tutorial/venv.html).
 
+ 
 Una vez instalado instalaremos las librerías mediante pip el cual es el instalador de paquetes de python. 
 Mediante la orden pip install realizaremos las consecuentes instalaciones necesarias para nuestro proyecto .
 Configuraremos nuestro entorno virtual mediante virtualenv para ello realizamos lo siguiente para el caso de SO Windows:
