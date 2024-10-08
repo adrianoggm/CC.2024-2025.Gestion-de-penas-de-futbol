@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard de Administrador</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+    <h1>Bienvenido, {{ username }} - Panel de Administración</h1>
+
+    <nav>
+        <ul>
+            <li><a href="{{ url_for('gestionar_jugadores') }}">Gestionar Jugadores</a></li>
+            <li><a href="{{ url_for('gestionar_partidos') }}">Gestionar Partidos</a></li>
+        </ul>
+    </nav>
+
+    <footer>
+        <p>© 2024 Sistema de Gestión Deportiva</p>
+    </footer>
+</body>
+</html>

@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestionar Jugadores</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+    <h1>Gestionar Jugadores</h1>
+    
+    <a href="{{ url_for('admin_dashboard') }}">Volver al Dashboard</a>
+    
+    <table>
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Nombre</th>
+                <th>Edad</th>
+                <th>Posición</th>
+                <th>Acciones</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for jugador in jugadores %}
+            <tr>
+                <td>{{ jugador['id'] }}</td>
+                <td>{{ jugador['nombre'] }}</td>
+                <td>{{ jugador['edad'] }}</td>
+                <td>{{ jugador['posicion'] }}</td>
+                <td>
+                    <a href="#">Editar</a> |
+                    <a href="#">Eliminar</a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <button>Añadir Jugador</button>
+</body>
+</html>
