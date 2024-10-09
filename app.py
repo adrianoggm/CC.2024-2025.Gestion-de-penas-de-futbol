@@ -17,12 +17,19 @@ def ping():
     return render_template('index.html')
 
 # Registro
-@app.route('/registration')
-def usersHandler():
-    conn = get_db_connection()
-    users = conn.execute('SELECT * FROM users').fetchall()
-    conn.close()
-    return jsonify([dict(user) for user in users])
+@app.route('/registration', methods=['GET', 'POST'])
+def registration():
+    if request.method == 'POST':
+        # Aquí iría la lógica para manejar el registro
+        username = request.form['username']
+        password = request.form['password']
+        confirm_password = request.form['confirm_password']
+
+        # Validaciones y lógica de registro aquí
+
+        return redirect(url_for('login'))  # Redirigir al login después del registro
+   
+    return render_template('registration.html')
 # Ruta de login
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -81,13 +88,14 @@ def admin_dashboard():
 # Gestión de jugadores
 @app.route('/admin/gestionar_jugadores')
 def gestionar_jugadores():
-    if 'admin_id' not in session:
+    if 'Idpena' not in session:
         flash('Por favor, inicia sesión como administrador.')
         return redirect(url_for('login'))
 
     # Aquí puedes obtener los datos de jugadores desde la base de datos
     conn = get_db_connection()
-    jugadores = conn.execute('SELECT * FROM jugadores').fetchall()
+    id=session['Idpena']
+    jugadores = conn.execute('SELECT * FROM JUGADORPENA WHERE idpena = ?', (id,)).fetchall()
     conn.close()
 
     return render_template('gestionar_jugadores.html', jugadores=jugadores)
@@ -95,7 +103,7 @@ def gestionar_jugadores():
 # Gestión de partidos
 @app.route('/admin/gestionar_partidos')
 def gestionar_partidos():
-    if 'admin_id' not in session:
+    if 'Idpena' not in session:
         flash('Por favor, inicia sesión como administrador.')
         return redirect(url_for('login'))
 

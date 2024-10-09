@@ -11,8 +11,17 @@
 
     <nav>
         <ul>
-            <li><a href="{{ url_for('gestionar_jugadores') }}">Gestionar Jugadores</a></li>
-            <li><a href="{{ url_for('gestionar_partidos') }}">Gestionar Partidos</a></li>
+            <!-- Puedes usar botones que redirigen a las rutas -->
+            <li>
+                <form action="{{ url_for('gestionar_jugadores') }}">
+                    <button type="submit">Gestionar Jugadores</button>
+                </form>
+            </li>
+            <li>
+                <form action="{{ url_for('gestionar_partidos') }}">
+                    <button type="submit">Gestionar Partidos</button>
+                </form>
+            </li>
         </ul>
     </nav>
 

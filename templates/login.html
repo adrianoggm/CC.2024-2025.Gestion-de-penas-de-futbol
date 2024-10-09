@@ -26,6 +26,10 @@
                 </div>
               {% endif %}
             {% endwith %}
+            <!-- Enlace a la página de registro -->
+            <div class="registration-link">
+              <p>¿No tienes una cuenta? <a href="{{ url_for('registration') }}">Regístrate aquí</a></p>
+          </div>
         </div>
     </div>
 {% endblock %}
