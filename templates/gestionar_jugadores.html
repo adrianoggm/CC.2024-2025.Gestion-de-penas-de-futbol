@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestionar Jugadores</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+    <h1>Gestionar Jugadores</h1>
+    
+    <a href="{{ url_for('admin_dashboard') }}">Volver al Dashboard</a>
+    
+    <table>
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Nombre</th>
+                <th>Nacionalidad</th>
+                <th>Posición</th>
+                <th>Acciones</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for jugador in jugadores %}
+            <tr>
+                <td>{{ jugador['Idjugador'] }}</td>
+                <td>{{ jugador['Mote'] }}</td>
+                <td>{{ jugador['Nacionalidad'] }}</td>
+                <td>{{ jugador['Posicion'] }}</td>
+                <td>
+                    <a href="{{ url_for('editar_jugador', jugador_id=jugador['Idjugador']) }}" class="btn">Editar</a> |
+                    
+                    <!-- Formulario para eliminar jugador -->
+                    <form action="{{ url_for('eliminar_jugador', jugador_id=jugador['Idjugador']) }}" method="POST" style="display:inline;">
+                        <button type="submit" onclick="return confirm('¿Estás seguro de que deseas eliminar este jugador?');">Eliminar</button>
+                    </form>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <!-- Botón Añadir Jugador -->
+    <div style="margin-top: 20px;">
+        <a href="{{ url_for('añadir_jugador') }}" class="btn">Añadir Jugador</a>
+    </div>
+</body>
+</html>

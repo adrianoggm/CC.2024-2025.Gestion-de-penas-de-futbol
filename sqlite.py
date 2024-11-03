@@ -8,7 +8,7 @@ c.execute("PRAGMA foreign_keys = ON;")
 c.execute(""" CREATE TABLE IF NOT EXISTS PENA(
           Idpena INTEGER PRIMARY KEY AUTOINCREMENT,
           Nombre TEXT,
-          Admin  TEXT NOT NULL
+          Admin  TEXT 
           )""")
 c.execute(""" CREATE TABLE IF NOT EXISTS JUGADOR(
           Idjugador INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -66,7 +66,7 @@ c.execute(""" CREATE TABLE IF NOT EXISTS EJUGADOR (
           Idjugador INTEGER,
           Goles INTEGER DEFAULT 0,
           Asistencias INTEGER DEFAULT 0,
-          Val REAL DEFAULT 5 CHECK(Calidad BETWEEN 0 AND 10),
+          Val REAL DEFAULT 5 CHECK(Val BETWEEN 0 AND 10),
           PRIMARY KEY (Ide,Idp,Idjugador),
           FOREIGN KEY (Idp) REFERENCES PARTIDO(Idp) ON UPDATE CASCADE ON DELETE CASCADE,
           FOREIGN KEY (Ide) REFERENCES EQUIPO(Ide) ON UPDATE CASCADE ON DELETE CASCADE,
@@ -78,8 +78,16 @@ c.execute(""" CREATE TABLE IF NOT EXISTS users (
     username TEXT PRIMARY KEY,         -- Nombre de usuario único
     password TEXT NOT NULL,                -- Contraseña almacenada como hash
     name TEXT NOT NULL,                     -- Nombre del usuario
-    Idjugador INTEGER,                      --Será 0 para los admins
+    Idjugador INTEGER,                      
     FOREIGN KEY (Idjugador) REFERENCES JUGADOR(Idjugador) ON UPDATE CASCADE ON DELETE CASCADE
+)""")
+#c.execute("DELETE FROM admins WHERE username = ?", ('Genadmin',))
+#c.execute("DROP TABLE  admins ")
+c.execute(""" CREATE TABLE IF NOT EXISTS admins (
+    username TEXT PRIMARY KEY,         -- Nombre de usuario único
+    password TEXT NOT NULL,                -- Contraseña almacenada como hash
+    Idpena TEXT ,                      
+    FOREIGN KEY (Idpena) REFERENCES PENA(Idpena) ON UPDATE CASCADE ON DELETE CASCADE
 )""")
 
 #c.execute("INSERT INTO PENA (Nombre,Admin) VALUES ('Generalife','Genadmin')")
@@ -89,11 +97,12 @@ c.execute(""" CREATE TABLE IF NOT EXISTS users (
 #c.execute("INSERT INTO JUGADORPENA VALUES ('1','1','Adri jr','ATACANTE')")
 #c.execute("INSERT INTO TEMPORADA(Fecha) VALUES ('2024/2025')")
 #c.execute("INSERT INTO JUGADORTEMPORADA(Idjugador,Idpena,Idt) VALUES ('1','1','1')")
-#password = generate_password_hash('1234')
+password = generate_password_hash('password') #1234 para adrianoggm
 #print(password)
 #c.execute("INSERT INTO users(username,password,name,idjugador) VALUES (?, ?, ?, ?)",('adrianoggm', password, 'Adriano', '1'))
+#c.execute("INSERT INTO admins(username,password,Idpena) VALUES (?, ?, ?)",('Genadmin', password, '1'))
 conn.commit()
-c.execute("SELECT * FROM users ")
+c.execute("SELECT * FROM JUGADORPENA ")
 penas=c.fetchall()
 print(penas)
 conn.close()
