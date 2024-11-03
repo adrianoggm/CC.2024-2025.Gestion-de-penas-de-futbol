@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Añadir Jugador</title>
+</head>
+<body>
+    <h1>Añadir Jugador</h1>
+    <form action="{{ url_for('añadir_jugador') }}" method="post">
+        <label for="nombre">Nombre:</label>
+        <input type="text" id="nombre" name="nombre" required><br>
+        
+        <label for="apellidos">Apellidos:</label>
+        <input type="text" id="apellidos" name="apellidos" required><br>
+        
+        <label for="nacionalidad">Nacionalidad:</label>
+        <input type="text" id="nacionalidad" name="nacionalidad" required><br>
+        
+        <label for="mote">Mote:</label>
+        <input type="text" id="mote" name="mote" required><br>
+        
+        <label for="posicion">Posición:</label>
+        <input type="text" id="posicion" name="posicion" required><br>
+        
+        <button type="submit">Guardar Jugador</button>
+    </form>
+</body>
+</html>

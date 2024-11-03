@@ -97,7 +97,7 @@ def gestionar_jugadores():
     id=session['Idpena']
     jugadores = conn.execute('SELECT * FROM JUGADORPENA WHERE idpena = ?', (id,)).fetchall()
     conn.close()
-
+    
     return render_template('gestionar_jugadores.html', jugadores=jugadores)
 
 # Gestión de partidos
@@ -113,6 +113,113 @@ def gestionar_partidos():
     conn.close()
 
     return render_template('gestionar_partidos.html', partidos=partidos)
+
+# Ruta para añadir jugador
+@app.route('/admin/gestionar_jugadores/añadir_jugador', methods=['GET', 'POST'])
+def añadir_jugador():
+    if 'Idpena' not in session:
+        flash('Por favor, inicia sesión como administrador.')
+        return redirect(url_for('login'))
+    
+    if request.method == 'POST':
+        nombre = request.form['nombre']
+        apellidos = request.form['apellidos']
+        nacionalidad = request.form['nacionalidad']
+        mote = request.form['mote']
+        posicion = request.form['posicion']
+        
+        # Insertar en la tabla JUGADOR y luego en JUGADORPENA
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute("INSERT INTO JUGADOR (Nombre, Apellidos, Nacionalidad) VALUES (?, ?, ?)",
+                       (nombre, apellidos, nacionalidad))
+        
+        # Obtener el Idjugador recién insertado
+        id_jugador = cursor.lastrowid
+        id_pena = session['Idpena']
+        
+        cursor.execute("INSERT INTO JUGADORPENA (Idjugador, Idpena, Mote, Posicion) VALUES (?, ?, ?, ?)",
+                       (id_jugador, id_pena, mote, posicion))
+        
+        conn.commit()
+        conn.close()
+        
+        flash('Jugador añadido exitosamente.')
+        return redirect(url_for('gestionar_jugadores'))
+    
+    return render_template('añadir_jugador.html')
+
+@app.route('/admin/gestionar_jugadores/editar/<int:jugador_id>', methods=['GET', 'POST'])
+def editar_jugador(jugador_id):
+    if 'Idpena' not in session:
+        flash('Por favor, inicia sesión como administrador.')
+        return redirect(url_for('login'))
+
+    conn = get_db_connection()
+
+    # Si el formulario ha sido enviado, actualizar el jugador en la base de datos
+    if request.method == 'POST':
+        nombre = request.form['nombre']
+        apellidos = request.form['apellidos']
+        nacionalidad = request.form['nacionalidad']
+        mote = request.form['mote']
+        posicion = request.form['posicion']
+
+        # Actualizar los datos del jugador
+        conn.execute("""
+            UPDATE JUGADOR
+            SET Nombre = ?, Apellidos = ?, Nacionalidad = ?
+            WHERE Idjugador = ?
+        """, (nombre, apellidos, nacionalidad, jugador_id))
+        
+        # Actualizar los datos en la tabla JUGADORPENA
+        conn.execute("""
+            UPDATE JUGADORPENA
+            SET Mote = ?, Posicion = ?
+            WHERE Idjugador = ? AND Idpena = ?
+        """, (mote, posicion, jugador_id, session['Idpena']))
+        
+        conn.commit()
+        conn.close()
+        
+        flash('Jugador actualizado correctamente.')
+        return redirect(url_for('gestionar_jugadores'))
+
+    # Obtener los datos actuales del jugador
+    jugador = conn.execute("""
+        SELECT JUGADOR.*, JUGADORPENA.Mote, JUGADORPENA.Posicion
+        FROM JUGADOR
+        JOIN JUGADORPENA ON JUGADOR.Idjugador = JUGADORPENA.Idjugador
+        WHERE JUGADOR.Idjugador = ? AND JUGADORPENA.Idpena = ?
+    """, (jugador_id, session['Idpena'])).fetchone()
+
+    conn.close()
+
+    if jugador is None:
+        flash('Jugador no encontrado.')
+        return redirect(url_for('gestionar_jugadores'))
+
+    return render_template('editar_jugador.html', jugador=jugador)
+
+@app.route('/admin/gestionar_jugadores/eliminar/<int:jugador_id>', methods=['POST'])
+def eliminar_jugador(jugador_id):
+    if 'Idpena' not in session:
+        flash('Por favor, inicia sesión como administrador.')
+        return redirect(url_for('login'))
+
+    conn = get_db_connection()
+    
+    # Eliminar el jugador de ambas tablas
+    conn.execute("DELETE FROM JUGADORPENA WHERE Idjugador = ? AND Idpena = ?", (jugador_id, session['Idpena']))
+    conn.execute("DELETE FROM JUGADOR WHERE Idjugador = ?", (jugador_id,))
+    
+    conn.commit()
+    conn.close()
+    
+    flash('Jugador eliminado correctamente.')
+    return redirect(url_for('gestionar_jugadores'))
+
 # Manejo de errores personalizados
 @app.errorhandler(404)
 def not_found(error):
