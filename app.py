@@ -16,20 +16,80 @@ def get_db_connection():
 def ping():
     return render_template('index.html')
 
-# Registro
-@app.route('/registration', methods=['GET', 'POST'])
-def registration():
+
+@app.route('/registration_pena', methods=['GET', 'POST'])
+def registration_pena():
     if request.method == 'POST':
-        # Aquí iría la lógica para manejar el registro
         username = request.form['username']
         password = request.form['password']
         confirm_password = request.form['confirm_password']
+        nombre_peña = request.form['nombre_peña']
 
-        # Validaciones y lógica de registro aquí
+        # Validaciones simples
+        if password != confirm_password:
+            flash('Las contraseñas no coinciden. Por favor, intenta de nuevo.')
+            return redirect(url_for('registration_pena'))
 
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        # Verificar si el nombre de usuario ya existe
+        cursor.execute("SELECT * FROM admins WHERE username = ?", (username,))
+        existing_user = cursor.fetchone()
+        
+        if existing_user:
+            flash('El nombre de usuario ya existe. Por favor, elige otro.')
+            return redirect(url_for('registration_pena'))
+
+        # Insertar en la tabla de peñas
+        cursor.execute("INSERT INTO PENA (nombre) VALUES (?)", (nombre_peña,))
+        id_peña = cursor.lastrowid  # Obtener el ID de la nueva peña
+
+        # Insertar en la tabla de administradores con Idpena
+        cursor.execute("INSERT INTO admins (username, password, Idpena) VALUES (?, ?, ?)",
+                       (username, generate_password_hash(password), id_peña))
+
+        flash('Admin registrado exitosamente. Ahora puedes iniciar sesión.')
+        conn.commit()
+        conn.close()
         return redirect(url_for('login'))  # Redirigir al login después del registro
-   
-    return render_template('registration.html')
+
+    return render_template('registration_pena.html')  # Cargar el formulario de registro de peña
+
+@app.route('/registration_jugador', methods=['GET', 'POST'])
+def registration_jugador():
+    if request.method == 'POST':
+        username = request.form['username']
+        password = request.form['password']
+        confirm_password = request.form['confirm_password']
+        id_peña = request.form['id_peña']  # ID de la peña a la que se unirá el jugador
+        mote = request.form['mote']
+        posicion = request.form['posicion']
+        nacionalidad = request.form['nacionalidad']
+
+        # Validaciones simples
+        if password != confirm_password:
+            flash('Las contraseñas no coinciden. Por favor, intenta de nuevo.')
+            return redirect(url_for('registration_jugador'))
+
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        # Insertar en la tabla de jugadores
+        cursor.execute("INSERT INTO JUGADOR (Nombre, Apellidos, Nacionalidad) VALUES (?, ?, ?)",
+                       (username, '', nacionalidad))  # Puedes personalizar Apellidos
+        id_jugador = cursor.lastrowid  # Obtener el ID del nuevo jugador
+
+        # Insertar en la tabla JUGADORPENA
+        cursor.execute("INSERT INTO JUGADORPENA (Idjugador, Idpena, Mote, Posicion) VALUES (?, ?, ?, ?)",
+                       (id_jugador, id_peña, mote, posicion))
+
+        flash('Jugador registrado exitosamente. Ahora puedes iniciar sesión.')
+        conn.commit()
+        conn.close()
+        return redirect(url_for('login'))  # Redirigir al login después del registro
+
+    return render_template('registration_jugador.html')  # Cargar el formulario de registro de jugador
 # Ruta de login
 @app.route('/login', methods=['GET', 'POST'])
 def login():

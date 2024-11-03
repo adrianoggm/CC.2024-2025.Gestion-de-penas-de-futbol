@@ -8,7 +8,7 @@ c.execute("PRAGMA foreign_keys = ON;")
 c.execute(""" CREATE TABLE IF NOT EXISTS PENA(
           Idpena INTEGER PRIMARY KEY AUTOINCREMENT,
           Nombre TEXT,
-          Admin  TEXT NOT NULL
+          Admin  TEXT 
           )""")
 c.execute(""" CREATE TABLE IF NOT EXISTS JUGADOR(
           Idjugador INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -66,7 +66,7 @@ c.execute(""" CREATE TABLE IF NOT EXISTS EJUGADOR (
           Idjugador INTEGER,
           Goles INTEGER DEFAULT 0,
           Asistencias INTEGER DEFAULT 0,
-          Val REAL DEFAULT 5 CHECK(Calidad BETWEEN 0 AND 10),
+          Val REAL DEFAULT 5 CHECK(Val BETWEEN 0 AND 10),
           PRIMARY KEY (Ide,Idp,Idjugador),
           FOREIGN KEY (Idp) REFERENCES PARTIDO(Idp) ON UPDATE CASCADE ON DELETE CASCADE,
           FOREIGN KEY (Ide) REFERENCES EQUIPO(Ide) ON UPDATE CASCADE ON DELETE CASCADE,
@@ -102,7 +102,7 @@ password = generate_password_hash('password') #1234 para adrianoggm
 #c.execute("INSERT INTO users(username,password,name,idjugador) VALUES (?, ?, ?, ?)",('adrianoggm', password, 'Adriano', '1'))
 #c.execute("INSERT INTO admins(username,password,Idpena) VALUES (?, ?, ?)",('Genadmin', password, '1'))
 conn.commit()
-c.execute("SELECT * FROM admins ")
+c.execute("SELECT * FROM JUGADORPENA ")
 penas=c.fetchall()
 print(penas)
 conn.close()

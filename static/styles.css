@@ -231,3 +231,14 @@ footer {
 .login-container button:hover {
     background-color: #45a049;
 }
+.flash-messages {
+    margin: 10px 0;
+    padding: 10px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    background-color: #f9f9f9;
+}
+
+.flash-message {
+    color: red; /* o el color que desees */
+}

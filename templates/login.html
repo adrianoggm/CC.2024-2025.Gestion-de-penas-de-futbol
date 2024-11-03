@@ -28,8 +28,11 @@
             {% endwith %}
             <!-- Enlace a la página de registro -->
             <div class="registration-link">
-              <p>¿No tienes una cuenta? <a href="{{ url_for('registration') }}">Regístrate aquí</a></p>
+              <p>¿No tienes una cuenta? <a href="{{ url_for('registration_jugador') }}">Regístrate aquí</a></p>
           </div>
+          <div class="registration-link">
+            <p>¿No tienes una peña? <a href="{{ url_for('registration_pena') }}">Regístrala aquí</a></p>
+        </div>
         </div>
     </div>
 {% endblock %}
