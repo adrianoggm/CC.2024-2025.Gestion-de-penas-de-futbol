@@ -117,7 +117,7 @@ def test_ping(client):
     assert 'inicia sesión' in response.get_data(as_text=True)  # Verifica que el enlace de inicio de sesión está presente
     assert 'Regístrate aquí' in response.get_data(as_text=True)  # Verifica que el enlace de registro está presente
 
-def test_registration_admin(client, init_db):
+def test_registration_admin_success(client, init_db):
     """Prueba el registro de un administrador de peña."""
     response = client.post('/registration_pena', data={
         'user_type': 'admin',
@@ -127,11 +127,21 @@ def test_registration_admin(client, init_db):
         'nombre_peña': 'Peña Test'
     })
     assert response.status_code == 302  # Debe redirigir
+
+def test_registration_admin_unsuccess(client, init_db):
+    """Prueba el registro de un administrador de peña."""
+    response = client.post('/registration_pena', data={
+        'user_type': 'admin',
+        'username': 'testadmin',
+        'password': 'testpass',
+        'confirm_password': 'testpass',
+        'nombre_peña': 'Peña Test'
+    })
+    
     assert 'Usuario o contraseña incorrectos' not in response.get_data(as_text=True)
 
-def test_registration_jugador(client, init_db):
+def test_registration_jugador_success(client, init_db):
     """Prueba el registro de un jugador."""
-    # Primero, se necesita registrar un admin para que un jugador pueda registrarse
   
     
     # Ahora registrar un jugador
@@ -147,6 +157,24 @@ def test_registration_jugador(client, init_db):
     })
     assert response.status_code == 302  # Debe redirigir
     assert 'Usuario o contraseña incorrectos' not in response.get_data(as_text=True)
+    
+def test_registration_jugador_unsuccess(client, init_db):
+        """Prueba el registro de un jugador."""
+    
+        
+        # Ahora registrar un jugador
+        response = client.post('/registration_jugador', data={
+            'user_type': 'jugador',
+            'username': 'testjugador',
+            'password': 'testpass',
+            'confirm_password': 'testpass',
+            'id_peña': 1,  # ID de la peña a la que se unirá el jugador
+            'mote': 'Jugadore',
+            'posicion': 'Delantero',
+            'nacionalidad': 'Española'
+        })
+       
+        assert 'Usuario o contraseña incorrectos' not in response.get_data(as_text=True)   
 
 def test_login(client, init_db):
     """Prueba el inicio de sesión."""
