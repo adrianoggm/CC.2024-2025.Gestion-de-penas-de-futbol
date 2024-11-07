@@ -1,8 +1,11 @@
+# This workflow will install Python dependencies, run tests and lint with a single version of Python
+# For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-python
+
 name: Python application
 
 on:
   push:
-    branches: [ "dev" ]
+    branches: [ "dev" ]  # Cambiado a "dev" para ejecutarse en la rama dev
   pull_request:
     branches: [ "main" ]
 
@@ -11,39 +14,36 @@ permissions:
 
 jobs:
   build:
+
     runs-on: ${{ matrix.os }}
 
     strategy:
       matrix:
-        os: [ubuntu-latest, windows-latest]  # Ejecutar en Ubuntu y Windows
+        os: [ubuntu-latest, windows-latest]  # Ejecuta en Ubuntu y Windows
         python-version: ["3.9", "3.10", "3.11", "3.12"]
 
     steps:
       - uses: actions/checkout@v4
-
+      
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v3
         with:
           python-version: ${{ matrix.python-version }}
-
+      
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install flake8 pytest
-          if [ "${{ matrix.os }}" == "ubuntu-latest" ]; then
-            if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-          else
-            if (Test-Path "requirements.txt") { pip install -r requirements.txt }
-          fi
-        shell: bash
-
+          pip install -r requirements.txt; fi
+      
       - name: Lint with flake8
         run: |
+          # Detiene el build si hay errores de sintaxis en Python o nombres no definidos
           flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+          # Usa exit-zero para tratar todos los errores como advertencias. El editor de GitHub tiene 127 caracteres de ancho
           flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
-        shell: bash
-
+      
       - name: Test with pytest
         run: |
           pytest
-        shell: bash
+  
