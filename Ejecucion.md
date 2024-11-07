@@ -1,4 +1,4 @@
-# Ejecución
+# Ejecución de la Aplicación 🚀
 
 Para poder ejecutar la app será tan sencillo como ejecutar en el directorio raíz del proyecto los siguientes comandos: 
 
