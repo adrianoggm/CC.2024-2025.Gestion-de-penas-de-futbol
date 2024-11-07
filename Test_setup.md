@@ -62,7 +62,7 @@ Donde se encuentran los diferentes test que se han planteado.
 
 Este documento detalla las pruebas realizadas para verificar las funcionalidades de la aplicación. Cada prueba se ha diseñado para asegurar el correcto funcionamiento de las funcionalidades de **registro**, **inicio de sesión**, **gestión de jugadores**, y más.
 Estas se han realizado simulando la base de datos en memoria RAM.
----
+
 
 #### 1. `test_ping`
 - **Propósito**: Verificar que la página de inicio (`/`) se carga correctamente.
