@@ -14,7 +14,8 @@ Las herramientas de CI permiten ejecutar automáticamente pruebas en cada cambio
      - Soporte para matrices de pruebas y ejecución en múltiples entornos y versiones de Python.
      - Gran cantidad de **acciones predefinidas** y personalizables.
    - **Uso**: Recomendado para proyectos que ya utilizan GitHub y desean una solución de CI/CD flexible, sin necesidad de configuración compleja.
-   
+     
+   ![GitHubActions](/docs/images/GithubActions.png)
 ### 2. **Travis CI**
    - **Descripción**: `Travis CI` es una herramienta de integración continua muy popular en la comunidad open-source.
    - **Características**:
@@ -22,7 +23,8 @@ Las herramientas de CI permiten ejecutar automáticamente pruebas en cada cambio
      - Ofrece una configuración simple mediante un archivo `.travis.yml`.
      - Ideal para proyectos de **código abierto**, ya que proporciona un plan gratuito para ellos.
    - **Uso**: Adecuado para proyectos que buscan una plataforma CI confiable y ya están alojados en GitHub o Bitbucket.
-
+     
+   ![Travis](/docs/images/Travis.png)
 ### 3. **CircleCI**
    - **Descripción**: `CircleCI` es una herramienta de CI/CD que soporta tanto GitHub como Bitbucket.
    - **Características**:
@@ -31,7 +33,8 @@ Las herramientas de CI permiten ejecutar automáticamente pruebas en cada cambio
      - Soporta ejecución en **contenedores Docker**, máquinas virtuales y entornos personalizados.
      - Buena opción para proyectos de código abierto y privados con alta personalización en CI.
    - **Uso**: Recomendado para equipos con necesidades avanzadas de CI/CD y que buscan optimizar el tiempo de ejecución de sus pipelines.
-
+     
+![Circle](/docs/images/circleci.png)
 ### 4. **GitLab CI/CD**
    - **Descripción**: `GitLab CI/CD` es el sistema de integración y entrega continua integrado en GitLab.
    - **Características**:
@@ -39,7 +42,8 @@ Las herramientas de CI permiten ejecutar automáticamente pruebas en cada cambio
      - Ejecuta pipelines de CI/CD de manera rápida y escalable en servidores de GitLab o en runners propios.
      - Amplia personalización en cada etapa del pipeline.
    - **Uso**: Ideal para proyectos alojados en GitLab, con soporte completo para CI/CD y flexibilidad en los pipelines.
-
+     
+![GitLab](/docs/images/gitlab.png)
 ### 5. **Jenkins**
    - **Descripción**: `Jenkins` es una de las herramientas de CI/CD más personalizables y ampliamente adoptadas.
    - **Características**:
@@ -47,7 +51,8 @@ Las herramientas de CI permiten ejecutar automáticamente pruebas en cada cambio
      - Flexibilidad para integrarse con casi cualquier entorno o sistema de control de versiones.
      - Requiere configuración y mantenimiento manual en servidores propios.
    - **Uso**: Recomendada para grandes proyectos con necesidades específicas de CI/CD y entornos propios.
-
+     
+![Jenkins](/docs/images/Jenkins.png)
 ---
 
 ### Selección de Herramienta para Nuestro Proyecto
