@@ -11,5 +11,9 @@ En la actualidad existen multitud de aplicaciones de ligas para equipos pero ape
 
  - [Hito 1](docs/hitos/hito1.md) .
 
+## 🏃: Integración continua.
+-Mediante el siguiente enlace se accede a la documentación donde se explica parte de la documentación sobre el software desarrollado, información de los test así como las pruebas de integración contínua que se han planteado:
+
+ - [Hito 2](docs/hitos/hito2.md) .
 ---
 
