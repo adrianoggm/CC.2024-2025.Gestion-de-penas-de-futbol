@@ -1,13 +1,15 @@
 from flask import Flask, flash,jsonify, render_template, request, make_response,render_template_string, redirect, url_for,session
-from users import users 
 import sqlite3
 from werkzeug.security import check_password_hash, generate_password_hash
-
-app = Flask(__name__)
+import os
+app = Flask(__name__, template_folder='../templates', static_folder='../static')
 app.secret_key = 'supersecretkey'
 Admin=False
+
+db_path = os.path.join('', 'Gestion_Penas.db')
+
 def get_db_connection():
-    conn = sqlite3.connect('Gestion_Penas.db')
+    conn = sqlite3.connect(db_path)
     conn.row_factory = sqlite3.Row  # Para obtener los resultados como diccionarios
     return conn
 
