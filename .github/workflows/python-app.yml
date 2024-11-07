@@ -5,9 +5,9 @@ name: Python application
 
 on:
   push:
-    branches: [ "dev" ]  # Cambiado a "dev" para ejecutarse en la rama dev
+    branches: [ "dev","main" ]  # Cambiado a "dev" para ejecutarse en la rama dev
   pull_request:
-    branches: [ "main" ]
+    branches: [ "main","dev" ]
 
 permissions:
   contents: read
