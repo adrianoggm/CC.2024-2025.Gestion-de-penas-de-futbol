@@ -121,3 +121,5 @@ Como podemos ver en la imagen siguiente, en el commit se vinculan automáticamen
 
 En la siguiente imagen, vemos que al realizar un merge y un pull request, también se ejecutan las pruebas automáticamente, y el proceso muestra que los tests están pasando correctamente.
 ![Pull Request](/docs/images/EjemploMerge.jpg)
+
+Con esto hemos finalizado el Hito 2 de Integración Continua.
