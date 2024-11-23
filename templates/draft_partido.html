@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Draft de Partido</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+    <h1>Crear Partido para la Temporada: {{ temporada['Fechaini'] }} - {{ temporada['Fechafin'] }}</h1>
+
+    <form method="post">
+        <h2>Equipo 1</h2>
+        <select name="equipo_1" id="equipo_1" multiple required>
+            {% for jugador in jugadores_disponibles %}
+            <option value="{{ jugador['Idjugador'] }}">{{ jugador['Nombre'] }}</option>
+            {% endfor %}
+        </select>
+
+        <h2>Equipo 2</h2>
+        <select name="equipo_2" id="equipo_2" multiple required>
+            {% for jugador in jugadores_disponibles %}
+            <option value="{{ jugador['Idjugador'] }}">{{ jugador['Nombre'] }}</option>
+            {% endfor %}
+        </select>
+
+        <button type="submit">Crear Partido</button>
+    </form>
+
+    <a href="{{ url_for('gestionar_partidos') }}">Volver a Gestión de Partidos</a>
+</body>
+</html>

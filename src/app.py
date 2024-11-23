@@ -1,3 +1,4 @@
+from datetime import datetime
 from flask import Flask, flash,jsonify, render_template, request, make_response,render_template_string, redirect, url_for,session
 import sqlite3
 from werkzeug.security import check_password_hash, generate_password_hash
@@ -282,6 +283,235 @@ def eliminar_jugador(jugador_id):
     flash('Jugador eliminado correctamente.')
     return redirect(url_for('gestionar_jugadores'))
 
+
+@app.route('/admin/gestionar_temporadas', methods=['GET'])
+def gestionar_temporadas():
+    if 'Idpena' not in session:
+        flash('Por favor, inicia sesión como administrador.')
+        return redirect(url_for('login'))
+
+    conn = get_db_connection()
+    # Obtener todas las temporadas asociadas a la peña del administrador
+    temporadas = conn.execute("""
+        SELECT * FROM TEMPORADA
+        WHERE Idpena = ?
+        ORDER BY Idt DESC
+    """, (session['Idpena'],)).fetchall()
+    conn.close()
+
+    return render_template('gestionar_temporadas.html', temporadas=temporadas)
+
+@app.route('/admin/gestionar_temporadas/añadir', methods=['GET', 'POST'])
+def añadir_temporada():
+    if 'Idpena' not in session:
+        flash('Por favor, inicia sesión como administrador.')
+        return redirect(url_for('login'))
+
+    if request.method == 'POST':
+        fechaini = request.form['fechaini']
+        fechafin = request.form['fechafin']
+
+        try:
+            # Convertir fechas del formato DD/MM/YYYY al formato ISO (YYYY-MM-DD)
+            print(fechaini)
+            fecha_ini_iso = fechaini
+            fecha_fin_iso = fechafin
+
+            # Validar que la fecha de inicio sea anterior a la fecha de fin
+            if fecha_ini_iso >= fecha_fin_iso:
+                flash('La fecha de inicio debe ser anterior a la fecha de fin.')
+                return redirect(url_for('añadir_temporada'))
+        except ValueError:
+            flash('Fecha inválida. Por favor, introduce fechas válidas en formato DD/MM/YYYY.')
+            return redirect(url_for('añadir_temporada'))
+
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        # Insertar nueva temporada asociada a la peña
+        cursor.execute("""
+            INSERT INTO TEMPORADA (Idpena, Fechaini, Fechafin)
+            VALUES (?, ?, ?)
+        """, (session['Idpena'], fecha_ini_iso, fecha_fin_iso))
+        conn.commit()
+        conn.close()
+
+        flash('Temporada añadida exitosamente.')
+        return redirect(url_for('gestionar_temporadas'))
+
+    return render_template('añadir_temporada.html')
+
+
+@app.route('/admin/gestionar_temporadas/eliminar/<int:id_temporada>', methods=['POST'])
+def eliminar_temporada(id_temporada):
+    if 'Idpena' not in session:
+        flash('Por favor, inicia sesión como administrador.')
+        return redirect(url_for('login'))
+
+    conn = get_db_connection()
+    # Eliminar la temporada asociada a la peña
+    conn.execute("""
+        DELETE FROM TEMPORADA
+        WHERE Idt = ? AND Idpena = ?
+    """, (id_temporada, session['Idpena']))
+    conn.commit()
+    conn.close()
+
+    flash('Temporada eliminada correctamente.')
+    return redirect(url_for('gestionar_temporadas'))
+
+
+
+@app.route('/admin/visualizar_temporada/<int:id_temporada>', methods=['GET', 'POST'])
+def visualizar_temporada(id_temporada):
+    if 'Idpena' not in session:
+        flash('Por favor, inicia sesión como administrador.')
+        return redirect(url_for('login'))
+
+    conn = get_db_connection()
+
+    # Obtener la información básica de la temporada
+    temporada = conn.execute("""
+        SELECT Idt, Fechaini, Fechafin
+        FROM TEMPORADA
+        WHERE Idt = ? AND Idpena = ?
+    """, (id_temporada, session['Idpena'])).fetchone()
+
+    if not temporada:
+        flash('Temporada no encontrada.')
+        return redirect(url_for('gestionar_temporadas'))
+
+    if request.method == 'POST':
+        jugador_id = request.form.get('jugador_id')
+
+        # Validar si el jugador ya está en la temporada
+        existe = conn.execute("""
+            SELECT 1 FROM JUGADORTEMPORADA
+            WHERE Idjugador = ? AND Idpena = ? AND Idt = ?
+        """, (jugador_id, session['Idpena'], id_temporada)).fetchone()
+
+        if existe:
+            flash('El jugador ya está asociado a esta temporada.')
+        else:
+            # Añadir jugador a la temporada
+            conn.execute("""
+                INSERT INTO JUGADORTEMPORADA (Idjugador, Idpena, Idt)
+                VALUES (?, ?, ?)
+            """, (jugador_id, session['Idpena'], id_temporada))
+            conn.commit()
+            flash('Jugador añadido a la temporada con éxito.')
+
+    # Clasificación de jugadores
+    jugadores = conn.execute("""
+        SELECT
+            J.Idjugador,
+            J.Nombre,
+            JT.VICT,
+            JT.EMP,
+            JT.DERR,
+            (JT.VICT * 3 + JT.EMP * 2 + JT.DERR * 1) AS Puntos,
+            ROUND(CAST(JT.VICT AS FLOAT) / NULLIF(JT.VICT + JT.EMP + JT.DERR, 0) * 100, 2) AS Porcentaje_victorias
+        FROM JUGADORTEMPORADA JT
+        JOIN JUGADOR J ON JT.Idjugador = J.Idjugador
+        WHERE JT.Idt = ? AND JT.Idpena = ?
+        ORDER BY Puntos DESC, Porcentaje_victorias DESC
+    """, (id_temporada, session['Idpena'])).fetchall()
+
+    # Lista de partidos
+    partidos = conn.execute("""
+        SELECT Idp, Idpena, Idt
+        FROM PARTIDO
+        WHERE Idt = ? AND Idpena = ?
+        ORDER BY Idp ASC
+    """, (id_temporada, session['Idpena'])).fetchall()
+
+    # Jugadores disponibles para añadir a la temporada
+    jugadores_disponibles = conn.execute("""
+        SELECT JP.Idjugador, J.Nombre
+        FROM JUGADORPENA JP
+        JOIN JUGADOR J ON JP.Idjugador = J.Idjugador
+        WHERE JP.Idpena = ?
+        AND JP.Idjugador NOT IN (
+            SELECT Idjugador
+            FROM JUGADORTEMPORADA
+            WHERE Idt = ? AND Idpena = ?
+        )
+    """, (session['Idpena'], id_temporada, session['Idpena'])).fetchall()
+
+    conn.close()
+
+    return render_template('visualizar_temporada.html', temporada=temporada, jugadores=jugadores, partidos=partidos, jugadores_disponibles=jugadores_disponibles)
+
+@app.route('/admin/draft_partido/<int:id_temporada>', methods=['GET', 'POST'])
+def draft_partido(id_temporada):
+    if 'Idpena' not in session:
+        flash('Por favor, inicia sesión como administrador.')
+        return redirect(url_for('login'))
+
+    conn = get_db_connection()
+
+    # Validar que la temporada exista
+    temporada = conn.execute("""
+        SELECT Idt, Fechaini, Fechafin
+        FROM TEMPORADA
+        WHERE Idt = ? AND Idpena = ?
+    """, (id_temporada, session['Idpena'])).fetchone()
+
+    if not temporada:
+        flash('Temporada no encontrada.')
+        return redirect(url_for('gestionar_temporadas'))
+
+    if request.method == 'POST':
+        # Crear el partido
+        cursor = conn.cursor()
+        cursor.execute("""
+            INSERT INTO PARTIDO (Idpena, Idt)
+            VALUES (?, ?)
+        """, (session['Idpena'], id_temporada))
+        id_partido = cursor.lastrowid
+
+        # Crear equipos para el partido
+        cursor.execute("""
+            INSERT INTO EQUIPO (Ide, Idp, Idpena, Idt)
+            VALUES (1, ?, ?, ?)
+        """, (id_partido, session['Idpena'], id_temporada))
+        cursor.execute("""
+            INSERT INTO EQUIPO (Ide, Idp, Idpena, Idt)
+            VALUES (2, ?, ?, ?)
+        """, (id_partido, session['Idpena'], id_temporada))
+
+        # Asignar jugadores a los equipos
+        jugadores_equipo_1 = request.form.getlist('equipo_1')
+        jugadores_equipo_2 = request.form.getlist('equipo_2')
+
+        for jugador_id in jugadores_equipo_1:
+            cursor.execute("""
+                INSERT INTO EJUGADOR (Ide, Idp, Idjugador)
+                VALUES (1, ?, ?)
+            """, (id_partido, jugador_id))
+
+        for jugador_id in jugadores_equipo_2:
+            cursor.execute("""
+                INSERT INTO EJUGADOR (Ide, Idp, Idjugador)
+                VALUES (2, ?, ?)
+            """, (id_partido, jugador_id))
+
+        conn.commit()
+        conn.close()
+        flash('Partido creado y jugadores asignados con éxito.')
+        return redirect(url_for('gestionar_partidos'))
+
+    # Obtener jugadores disponibles para asignar a equipos
+    jugadores_disponibles = conn.execute("""
+        SELECT JT.Idjugador, J.Nombre
+        FROM JUGADORTEMPORADA JT
+        JOIN JUGADOR J ON JT.Idjugador = J.Idjugador
+        WHERE JT.Idpena = ? AND JT.Idt = ?
+    """, (session['Idpena'], id_temporada)).fetchall()
+
+    conn.close()
+
+    return render_template('draft_partido.html', temporada=temporada, jugadores_disponibles=jugadores_disponibles)
 # Manejo de errores personalizados
 @app.errorhandler(404)
 def not_found(error):
