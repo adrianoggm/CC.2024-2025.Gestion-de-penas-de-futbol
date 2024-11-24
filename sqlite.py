@@ -45,37 +45,34 @@ c.execute(""" CREATE TABLE IF NOT EXISTS JUGADORTEMPORADA (
           FOREIGN KEY (Idpena) REFERENCES PENA(Idpena) ON UPDATE CASCADE ON DELETE CASCADE,
           FOREIGN KEY (Idt) REFERENCES TEMPORADA(Idt) ON UPDATE CASCADE ON DELETE CASCADE
           )""")
-c.execute(""" CREATE TABLE IF NOT EXISTS PARTIDO (
-          Idp INTEGER ,
-          Idpena INTEGER,
-          Idt INTEGER,
-          PRIMARY KEY (Idp,Idpena,Idt),
-          FOREIGN KEY (Idpena) REFERENCES PENA(Idpena) ON UPDATE CASCADE ON DELETE CASCADE,
-          FOREIGN KEY (Idt) REFERENCES TEMPORADA(Idt) ON UPDATE CASCADE ON DELETE CASCADE
-          )""")
+c.execute("""CREATE TABLE IF NOT EXISTS PARTIDO (
+    Idp INTEGER PRIMARY KEY AUTOINCREMENT,
+    Idpena INTEGER,
+    Idt INTEGER,
+    FOREIGN KEY (Idpena) REFERENCES PENA(Idpena) ON UPDATE CASCADE ON DELETE CASCADE,
+    FOREIGN KEY (Idt) REFERENCES TEMPORADA(Idt) ON UPDATE CASCADE ON DELETE CASCADE
+)""")
 c.execute(""" CREATE TABLE IF NOT EXISTS EQUIPO (
-          Ide INTEGER ,
-          Idp INTEGER ,
-          Idpena INTEGER,
-          Idt INTEGER,
-          PRIMARY KEY (Ide,Idp,Idpena,Idt),
-          FOREIGN KEY (Idp) REFERENCES PARTIDO(Idp) ON UPDATE CASCADE ON DELETE CASCADE,
-          FOREIGN KEY (Idpena) REFERENCES PENA(Idpena) ON UPDATE CASCADE ON DELETE CASCADE,
-          FOREIGN KEY (Idt) REFERENCES TEMPORADA(Idt) ON UPDATE CASCADE ON DELETE CASCADE
-          )""")
+    Ide INTEGER PRIMARY KEY AUTOINCREMENT,
+    Idp INTEGER,
+    Idpena INTEGER,
+    Idt INTEGER,
+    FOREIGN KEY (Idp) REFERENCES PARTIDO(Idp) ON UPDATE CASCADE ON DELETE CASCADE,
+    FOREIGN KEY (Idpena) REFERENCES PENA(Idpena) ON UPDATE CASCADE ON DELETE CASCADE,
+    FOREIGN KEY (Idt) REFERENCES TEMPORADA(Idt) ON UPDATE CASCADE ON DELETE CASCADE
+)""")
 c.execute(""" CREATE TABLE IF NOT EXISTS EJUGADOR (
-          Ide INTEGER ,
-          Idp INTEGER ,
-          Idjugador INTEGER,
-          Goles INTEGER DEFAULT 0,
-          Asistencias INTEGER DEFAULT 0,
-          Val REAL DEFAULT 5 CHECK(Val BETWEEN 0 AND 10),
-          PRIMARY KEY (Ide,Idp,Idjugador),
-          FOREIGN KEY (Idp) REFERENCES PARTIDO(Idp) ON UPDATE CASCADE ON DELETE CASCADE,
-          FOREIGN KEY (Ide) REFERENCES EQUIPO(Ide) ON UPDATE CASCADE ON DELETE CASCADE,
-          FOREIGN KEY (Idjugador) REFERENCES JUGADOR(Idjugador) ON UPDATE CASCADE ON DELETE CASCADE
-          
-          )""")
+    Id INTEGER PRIMARY KEY AUTOINCREMENT,
+    Ide INTEGER,
+    Idp INTEGER,
+    Idjugador INTEGER,
+    Goles INTEGER DEFAULT 0,
+    Asistencias INTEGER DEFAULT 0,
+    Val REAL DEFAULT 5 CHECK(Val BETWEEN 0 AND 10),
+    FOREIGN KEY (Idp) REFERENCES PARTIDO(Idp) ON UPDATE CASCADE ON DELETE CASCADE,
+    FOREIGN KEY (Ide) REFERENCES EQUIPO(Ide) ON UPDATE CASCADE ON DELETE CASCADE,
+    FOREIGN KEY (Idjugador) REFERENCES JUGADOR(Idjugador) ON UPDATE CASCADE ON DELETE CASCADE
+)""")
 #c.execute("DELETE FROM users WHERE username = ?", ('adrianoggm',))
 c.execute(""" CREATE TABLE IF NOT EXISTS users (
     username TEXT PRIMARY KEY,         -- Nombre de usuario único
@@ -105,7 +102,7 @@ password = generate_password_hash('password') #1234 para adrianoggm
 #c.execute("INSERT INTO users(username,password,name,idjugador) VALUES (?, ?, ?, ?)",('adrianoggm', password, 'Adriano', '1'))
 #c.execute("INSERT INTO admins(username,password,Idpena) VALUES (?, ?, ?)",('Genadmin', password, '1'))
 conn.commit()
-c.execute("SELECT * FROM JUGADORPENA ")
+c.execute("SELECT * FROM EJUGADOR ")
 penas=c.fetchall()
 print(penas)
 conn.close()

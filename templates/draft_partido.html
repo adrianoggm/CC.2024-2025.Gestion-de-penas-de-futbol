@@ -5,28 +5,227 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Draft de Partido</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <style>
+        .container {
+            display: flex;
+            justify-content: space-between;
+            margin: 20px 0;
+        }
+
+        .list {
+            width: 30%;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            min-height: 300px;
+            background-color: #f9f9f9;
+        }
+
+        .list h3 {
+            text-align: center;
+        }
+
+        .list-item {
+            padding: 5px;
+            margin: 5px 0;
+            background-color: #e3e3e3;
+            border: 1px solid #ddd;
+            border-radius: 3px;
+            cursor: grab;
+        }
+
+        .list-item.dragging {
+            opacity: 0.5;
+        }
+
+        .droppable {
+            border: 2px dashed #aaa;
+        }
+
+        .stats-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 5px;
+        }
+
+        .stats-row span {
+            margin-right: 10px;
+        }
+
+        .stats-row input {
+            width: 50px;
+        }
+    </style>
 </head>
 <body>
     <h1>Crear Partido para la Temporada: {{ temporada['Fechaini'] }} - {{ temporada['Fechafin'] }}</h1>
 
-    <form method="post">
-        <h2>Equipo 1</h2>
-        <select name="equipo_1" id="equipo_1" multiple required>
-            {% for jugador in jugadores_disponibles %}
-            <option value="{{ jugador['Idjugador'] }}">{{ jugador['Nombre'] }}</option>
-            {% endfor %}
-        </select>
+    <!-- Selección de convocados -->
+    <section>
+        <h2>Convocar Jugadores</h2>
+        <form method="post">
+            <input type="hidden" name="convocar">
+            <select name="convocados" id="convocados" multiple required>
+                {% for jugador in jugadores_disponibles %}
+                <option value="{{ jugador['Idjugador'] }}">{{ jugador['Mote'] }} ({{ jugador['Posicion'] }})</option>
+                {% endfor %}
+            </select>
+            <button type="submit">Convocar Jugadores</button>
+        </form>
+    </section>
 
-        <h2>Equipo 2</h2>
-        <select name="equipo_2" id="equipo_2" multiple required>
-            {% for jugador in jugadores_disponibles %}
-            <option value="{{ jugador['Idjugador'] }}">{{ jugador['Nombre'] }}</option>
-            {% endfor %}
-        </select>
+    <!-- Asignación a equipos -->
+    {% if jugadores_convocados %}
+    <section>
+        <h2>Asignar Jugadores a Equipos</h2>
+        <form method="post" id="assign-teams-form">
+            <input type="hidden" name="crear_partido" value="1">
 
-        <button type="submit">Crear Partido</button>
-    </form>
+            <div class="container">
+                <!-- Convocados -->
+                <div id="convocados-list" class="list droppable">
+                    <h3>Convocados</h3>
+                    {% for jugador in jugadores_convocados %}
+                    <div class="list-item" draggable="true" data-id="{{ jugador['Idjugador'] }}">
+                        {{ jugador['Mote'] }} ({{ jugador['Posicion'] }})
+                    </div>
+                    {% endfor %}
+                </div>
 
-    <a href="{{ url_for('gestionar_partidos') }}">Volver a Gestión de Partidos</a>
+                <!-- Equipo 1 -->
+                <div id="equipo-1" class="list droppable">
+                    <h3>Equipo 1</h3>
+                </div>
+
+                <!-- Equipo 2 -->
+                <div id="equipo-2" class="list droppable">
+                    <h3>Equipo 2</h3>
+                </div>
+            </div>
+
+            <!-- Estadísticas -->
+            <div class="container">
+                <div id="equipo-1-stats" class="list">
+                    <h3>Estadísticas Equipo 1</h3>
+                </div>
+
+                <div id="equipo-2-stats" class="list">
+                    <h3>Estadísticas Equipo 2</h3>
+                </div>
+            </div>
+
+            <button type="submit">Registrar Partido</button>
+        </form>
+    </section>
+    {% endif %}
+
+    <!-- Volver a la temporada -->
+    <a href="{{ url_for('visualizar_temporada', id_temporada=temporada['Idt']) }}">Volver a la Temporada</a>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const form = document.getElementById('assign-teams-form');
+            const draggables = document.querySelectorAll('.list-item');
+            const droppables = document.querySelectorAll('.droppable');
+
+            const equipo1Stats = document.getElementById('equipo-1-stats');
+            const equipo2Stats = document.getElementById('equipo-2-stats');
+
+            draggables.forEach(draggable => {
+                draggable.addEventListener('dragstart', () => {
+                    draggable.classList.add('dragging');
+                });
+
+                draggable.addEventListener('dragend', () => {
+                    draggable.classList.remove('dragging');
+                });
+            });
+
+            droppables.forEach(droppable => {
+                droppable.addEventListener('dragover', (e) => {
+                    e.preventDefault();
+                    droppable.classList.add('highlight');
+                });
+
+                droppable.addEventListener('dragleave', () => {
+                    droppable.classList.remove('highlight');
+                });
+
+                droppable.addEventListener('drop', (e) => {
+                    e.preventDefault();
+                    droppable.classList.remove('highlight');
+
+                    const dragging = document.querySelector('.dragging');
+
+                    if (dragging) {
+                        const currentParent = dragging.parentElement;
+                        if (currentParent) {
+                            currentParent.removeChild(dragging);
+                        }
+                        droppable.appendChild(dragging);
+                        updateStats(droppable.id, dragging);
+                    }
+                });
+            });
+
+            function updateStats(teamId, playerElement) {
+                const playerId = playerElement.getAttribute('data-id');
+                const playerName = playerElement.textContent.trim();
+
+                const statsContainer = teamId === 'equipo-1' ? equipo1Stats : equipo2Stats;
+
+                const otherTeamId = teamId === 'equipo-1' ? 'equipo-2' : 'equipo-1';
+                const otherStats = document.getElementById(`stats-${otherTeamId}-${playerId}`);
+                if (otherStats) {
+                    otherStats.remove();
+                }
+
+                const existingStats = document.getElementById(`stats-${teamId}-${playerId}`);
+                if (existingStats) {
+                    existingStats.remove();
+                }
+
+                const statsRow = document.createElement('div');
+                statsRow.id = `stats-${teamId}-${playerId}`;
+                statsRow.className = 'stats-row';
+                statsRow.innerHTML = `
+                    <span>${playerName}</span>
+                    Goles: <input type="number" name="goles_${playerId}_${teamId}" min="0" value="0">
+                    Asistencias: <input type="number" name="asistencias_${playerId}_${teamId}" min="0" value="0">
+                    Valoración: <input type="number" name="valoracion_${playerId}_${teamId}" min="0" max="10" step="0.1" value="5">
+                `;
+                statsContainer.appendChild(statsRow);
+            }
+
+            form.addEventListener('submit', () => {
+                document.querySelectorAll('.hidden-field').forEach(el => el.remove());
+
+                const equipo1Players = Array.from(document.querySelectorAll('#equipo-1 .list-item'))
+                    .map(player => player.getAttribute('data-id'));
+
+                const equipo2Players = Array.from(document.querySelectorAll('#equipo-2 .list-item'))
+                    .map(player => player.getAttribute('data-id'));
+
+                equipo1Players.forEach(id => {
+                    const hiddenField = document.createElement('input');
+                    hiddenField.type = 'hidden';
+                    hiddenField.name = 'equipo_1';
+                    hiddenField.value = id;
+                    hiddenField.classList.add('hidden-field');
+                    form.appendChild(hiddenField);
+                });
+
+                equipo2Players.forEach(id => {
+                    const hiddenField = document.createElement('input');
+                    hiddenField.type = 'hidden';
+                    hiddenField.name = 'equipo_2';
+                    hiddenField.value = id;
+                    hiddenField.classList.add('hidden-field');
+                    form.appendChild(hiddenField);
+                });
+            });
+        });
+    </script>
 </body>
 </html>

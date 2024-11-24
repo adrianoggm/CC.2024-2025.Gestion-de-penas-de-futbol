@@ -172,7 +172,7 @@ def gestionar_partidos():
 
     # Aquí puedes obtener los datos de los partidos desde la base de datos
     conn = get_db_connection()
-    partidos = conn.execute('SELECT * FROM partidos').fetchall()
+    partidos = conn.execute('SELECT * FROM PARTIDO').fetchall()
     conn.close()
 
     return render_template('gestionar_partidos.html', partidos=partidos)
@@ -405,14 +405,15 @@ def visualizar_temporada(id_temporada):
     jugadores = conn.execute("""
         SELECT
             J.Idjugador,
-            J.Nombre,
+            JP.Mote,
             JT.VICT,
             JT.EMP,
             JT.DERR,
             (JT.VICT * 3 + JT.EMP * 2 + JT.DERR * 1) AS Puntos,
             ROUND(CAST(JT.VICT AS FLOAT) / NULLIF(JT.VICT + JT.EMP + JT.DERR, 0) * 100, 2) AS Porcentaje_victorias
         FROM JUGADORTEMPORADA JT
-        JOIN JUGADOR J ON JT.Idjugador = J.Idjugador
+        JOIN JUGADORPENA JP ON JT.Idjugador = JP.Idjugador AND JT.Idpena = JP.Idpena
+        JOIN JUGADOR J ON JP.Idjugador = J.Idjugador
         WHERE JT.Idt = ? AND JT.Idpena = ?
         ORDER BY Puntos DESC, Porcentaje_victorias DESC
     """, (id_temporada, session['Idpena'])).fetchall()
@@ -427,7 +428,7 @@ def visualizar_temporada(id_temporada):
 
     # Jugadores disponibles para añadir a la temporada
     jugadores_disponibles = conn.execute("""
-        SELECT JP.Idjugador, J.Nombre
+        SELECT JP.Idjugador, JP.Mote
         FROM JUGADORPENA JP
         JOIN JUGADOR J ON JP.Idjugador = J.Idjugador
         WHERE JP.Idpena = ?
@@ -440,7 +441,15 @@ def visualizar_temporada(id_temporada):
 
     conn.close()
 
-    return render_template('visualizar_temporada.html', temporada=temporada, jugadores=jugadores, partidos=partidos, jugadores_disponibles=jugadores_disponibles)
+    return render_template(
+        'visualizar_temporada.html',
+        temporada=temporada,
+        jugadores=jugadores,
+        partidos=partidos,
+        jugadores_disponibles=jugadores_disponibles
+    )
+
+
 
 @app.route('/admin/draft_partido/<int:id_temporada>', methods=['GET', 'POST'])
 def draft_partido(id_temporada):
@@ -462,56 +471,159 @@ def draft_partido(id_temporada):
         return redirect(url_for('gestionar_temporadas'))
 
     if request.method == 'POST':
-        # Crear el partido
-        cursor = conn.cursor()
-        cursor.execute("""
-            INSERT INTO PARTIDO (Idpena, Idt)
-            VALUES (?, ?)
-        """, (session['Idpena'], id_temporada))
-        id_partido = cursor.lastrowid
+        if 'convocar' in request.form:
+            # Lista de convocados seleccionados
+            convocados = request.form.getlist('convocados')
+            session['convocados'] = convocados
+            print(convocados)
+            flash(f'{len(convocados)} jugadores convocados.')
+            return redirect(url_for('draft_partido', id_temporada=id_temporada))
 
-        # Crear equipos para el partido
-        cursor.execute("""
-            INSERT INTO EQUIPO (Ide, Idp, Idpena, Idt)
-            VALUES (1, ?, ?, ?)
-        """, (id_partido, session['Idpena'], id_temporada))
-        cursor.execute("""
-            INSERT INTO EQUIPO (Ide, Idp, Idpena, Idt)
-            VALUES (2, ?, ?, ?)
-        """, (id_partido, session['Idpena'], id_temporada))
+        elif 'crear_partido' in request.form:  # Aseguramos que esta acción es reconocida
+            # Obtener jugadores asignados a cada equipo
+            jugadores_equipo_1 = request.form.getlist('equipo_1')
+            jugadores_equipo_2 = request.form.getlist('equipo_2')
+            print(jugadores_equipo_1)
+            print(jugadores_equipo_2)
+            # Validaciones de equipos (ya existentes en tu código)
+            jugadores_repetidos = set(jugadores_equipo_1).intersection(set(jugadores_equipo_2))
+            if jugadores_repetidos:
+                flash(f"Los siguientes jugadores están en ambos equipos: {', '.join(jugadores_repetidos)}. Corrige esto antes de continuar.")
+                return redirect(url_for('draft_partido', id_temporada=id_temporada))
 
-        # Asignar jugadores a los equipos
-        jugadores_equipo_1 = request.form.getlist('equipo_1')
-        jugadores_equipo_2 = request.form.getlist('equipo_2')
+            if len(jugadores_equipo_1) < 1 or len(jugadores_equipo_2) < 1:
+                flash("Cada equipo debe tener al menos un jugador.")
+                return redirect(url_for('draft_partido', id_temporada=id_temporada))
 
-        for jugador_id in jugadores_equipo_1:
+            if len(jugadores_equipo_1) != len(jugadores_equipo_2):
+                flash("Ambos equipos deben tener el mismo número de jugadores.")
+                return redirect(url_for('draft_partido', id_temporada=id_temporada))
+
+            # Crear el partido
+            cursor = conn.cursor()
             cursor.execute("""
-                INSERT INTO EJUGADOR (Ide, Idp, Idjugador)
-                VALUES (1, ?, ?)
-            """, (id_partido, jugador_id))
+                INSERT INTO PARTIDO (Idpena, Idt)
+                VALUES (?, ?)
+            """, (session['Idpena'], id_temporada))
+            id_partido = cursor.lastrowid
 
-        for jugador_id in jugadores_equipo_2:
+                    # Crear equipos para el partido
             cursor.execute("""
-                INSERT INTO EJUGADOR (Ide, Idp, Idjugador)
-                VALUES (2, ?, ?)
-            """, (id_partido, jugador_id))
+                INSERT INTO EQUIPO (Idp, Idpena, Idt)
+                VALUES (?, ?, ?)
+            """, (id_partido, session['Idpena'], id_temporada))
 
-        conn.commit()
-        conn.close()
-        flash('Partido creado y jugadores asignados con éxito.')
-        return redirect(url_for('gestionar_partidos'))
+            cursor.execute("""
+                INSERT INTO EQUIPO (Idp, Idpena, Idt)
+                VALUES (?, ?, ?)
+            """, (id_partido, session['Idpena'], id_temporada))
+
+                        # Inicializar los totales de goles para cada equipo
+            total_goles_equipo_1 = 0
+            total_goles_equipo_2 = 0
+
+            # Asignar estadísticas a jugadores del equipo 1
+            for jugador_id in jugadores_equipo_1:
+                goles = int(request.form.get(f'goles_{jugador_id}_equipo-1', 0))
+                asistencias = request.form.get(f'asistencias_{jugador_id}_equipo-1', 0)
+                valoracion = request.form.get(f'valoracion_{jugador_id}_equipo-1', 5)
+                
+                # Sumar los goles al total del equipo 1
+                total_goles_equipo_1 += goles
+                
+                # Insertar las estadísticas en la base de datos
+                cursor.execute("""
+                    INSERT INTO EJUGADOR (Ide, Idp, Idjugador, Goles, Asistencias, Val)
+                    VALUES (1, ?, ?, ?, ?, ?)
+                """, (id_partido, jugador_id, goles, asistencias, valoracion))
+
+            # Asignar estadísticas a jugadores del equipo 2
+            for jugador_id in jugadores_equipo_2:
+                goles = int(request.form.get(f'goles_{jugador_id}_equipo-2', 0))
+                asistencias = request.form.get(f'asistencias_{jugador_id}_equipo-2', 0)
+                valoracion = request.form.get(f'valoracion_{jugador_id}_equipo-2', 5)
+                
+                # Sumar los goles al total del equipo 2
+                total_goles_equipo_2 += goles
+                
+                # Insertar las estadísticas en la base de datos
+                cursor.execute("""
+                    INSERT INTO EJUGADOR (Ide, Idp, Idjugador, Goles, Asistencias, Val)
+                    VALUES (2, ?, ?, ?, ?, ?)
+                """, (id_partido, jugador_id, goles, asistencias, valoracion))
+                
+              # Determinar el resultado del partido
+            resultado_equipo_1 = 0  # 1 = victoria, 0 = empate, -1 = derrota
+            resultado_equipo_2 = 0
+
+            if total_goles_equipo_1 > total_goles_equipo_2:
+                resultado_equipo_1 = 1
+                resultado_equipo_2 = -1
+            elif total_goles_equipo_1 < total_goles_equipo_2:
+                resultado_equipo_1 = -1
+                resultado_equipo_2 = 1
+
+            # Actualizar JUGADORTEMPORADA para cada jugador
+            for jugador_id in jugadores_equipo_1:
+                if resultado_equipo_1 == 1:
+                    cursor.execute("""
+                        UPDATE JUGADORTEMPORADA
+                        SET VICT = VICT + 1
+                        WHERE Idjugador = ? AND Idpena = ? AND Idt = ?
+                    """, (jugador_id, session['Idpena'], id_temporada))
+                elif resultado_equipo_1 == -1:
+                    cursor.execute("""
+                        UPDATE JUGADORTEMPORADA
+                        SET DERR = DERR + 1
+                        WHERE Idjugador = ? AND Idpena = ? AND Idt = ?
+                    """, (jugador_id, session['Idpena'], id_temporada))
+                else:
+                    cursor.execute("""
+                        UPDATE JUGADORTEMPORADA
+                        SET EMP = EMP + 1
+                        WHERE Idjugador = ? AND Idpena = ? AND Idt = ?
+                    """, (jugador_id, session['Idpena'], id_temporada))
+
+            for jugador_id in jugadores_equipo_2:
+                if resultado_equipo_2 == 1:
+                    cursor.execute("""
+                        UPDATE JUGADORTEMPORADA
+                        SET VICT = VICT + 1
+                        WHERE Idjugador = ? AND Idpena = ? AND Idt = ?
+                    """, (jugador_id, session['Idpena'], id_temporada))
+                elif resultado_equipo_2 == -1:
+                    cursor.execute("""
+                        UPDATE JUGADORTEMPORADA
+                        SET DERR = DERR + 1
+                        WHERE Idjugador = ? AND Idpena = ? AND Idt = ?
+                    """, (jugador_id, session['Idpena'], id_temporada))
+                else:
+                    cursor.execute("""
+                        UPDATE JUGADORTEMPORADA
+                        SET EMP = EMP + 1
+                        WHERE Idjugador = ? AND Idpena = ? AND Idt = ?
+                    """, (jugador_id, session['Idpena'], id_temporada))
+
+            conn.commit()
+            session.pop('convocados', None)
+            flash('Partido creado y jugadores asignados con éxito.')
+            return redirect(url_for('visualizar_temporada', id_temporada=id_temporada))
 
     # Obtener jugadores disponibles para asignar a equipos
     jugadores_disponibles = conn.execute("""
-        SELECT JT.Idjugador, J.Nombre
+        SELECT JT.Idjugador, JP.Mote, JP.Posicion
         FROM JUGADORTEMPORADA JT
-        JOIN JUGADOR J ON JT.Idjugador = J.Idjugador
+        JOIN JUGADORPENA JP ON JT.Idjugador = JP.Idjugador AND JT.Idpena = JP.Idpena
         WHERE JT.Idpena = ? AND JT.Idt = ?
     """, (session['Idpena'], id_temporada)).fetchall()
 
+    # Obtener lista de convocados (si existe en la sesión)
+    convocados = session.get('convocados', [])
+    jugadores_convocados = [j for j in jugadores_disponibles if str(j['Idjugador']) in convocados]
+
     conn.close()
 
-    return render_template('draft_partido.html', temporada=temporada, jugadores_disponibles=jugadores_disponibles)
+    return render_template('draft_partido.html', temporada=temporada, jugadores_disponibles=jugadores_disponibles, jugadores_convocados=jugadores_convocados)
 # Manejo de errores personalizados
 @app.errorhandler(404)
 def not_found(error):

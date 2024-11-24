@@ -13,24 +13,28 @@
     <section>
         <h2>Clasificación de Jugadores</h2>
         <table>
-            <tr>
-                <th>Jugador</th>
-                <th>Victorias</th>
-                <th>Empates</th>
-                <th>Derrotas</th>
-                <th>Puntos</th>
-                <th>% Victorias</th>
-            </tr>
-            {% for jugador in jugadores %}
-            <tr>
-                <td>{{ jugador['Nombre'] }}</td>
-                <td>{{ jugador['VICT'] }}</td>
-                <td>{{ jugador['EMP'] }}</td>
-                <td>{{ jugador['DERR'] }}</td>
-                <td>{{ jugador['Puntos'] }}</td>
-                <td>{{ jugador['Porcentaje_victorias'] }}%</td>
-            </tr>
-            {% endfor %}
+            <thead>
+                <tr>
+                    <th>Nombre</th>
+                    <th>Victorias</th>
+                    <th>Empates</th>
+                    <th>Derrotas</th>
+                    <th>Puntos</th>
+                    <th>% Victorias</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for jugador in jugadores %}
+                <tr>
+                    <td>{{ jugador['Mote'] }}</td>
+                    <td>{{ jugador['VICT'] }}</td>
+                    <td>{{ jugador['EMP'] }}</td>
+                    <td>{{ jugador['DERR'] }}</td>
+                    <td>{{ jugador['Puntos'] }}</td>
+                    <td>{{ jugador['Porcentaje_victorias'] }}%</td>
+                </tr>
+                {% endfor %}
+            </tbody>
         </table>
     </section>
 
@@ -42,7 +46,7 @@
             <select name="jugador_id" id="jugador_id" required>
                 <option value="" disabled selected>-- Selecciona un jugador --</option>
                 {% for jugador in jugadores_disponibles %}
-                <option value="{{ jugador['Idjugador'] }}">{{ jugador['Nombre'] }}</option>
+                <option value="{{ jugador['Idjugador'] }}">{{ jugador['Mote'] }}</option>
                 {% endfor %}
             </select>
             <button type="submit">Añadir Jugador</button>
@@ -53,23 +57,33 @@
     <section>
         <h2>Partidos Disputados</h2>
         <table>
-            <tr>
-                <th>ID Partido</th>
-                <th>ID Peña</th>
-                <th>ID Temporada</th>
-            </tr>
-            {% for partido in partidos %}
-            <tr>
-                <td>{{ partido['Idp'] }}</td>
-                <td>{{ partido['Idpena'] }}</td>
-                <td>{{ partido['Idt'] }}</td>
-            </tr>
-            {% endfor %}
+            <thead>
+                <tr>
+                    <th>ID Partido</th>
+                    <th>ID Peña</th>
+                    <th>ID Temporada</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for partido in partidos %}
+                <tr>
+                    <td>{{ partido['Idp'] }}</td>
+                    <td>{{ partido['Idpena'] }}</td>
+                    <td>{{ partido['Idt'] }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
         </table>
     </section>
 
+    <!-- Redirigir al draft de partido -->
+    <section>
+        <h2>Crear un Nuevo Partido</h2>
+        <a href="{{ url_for('draft_partido', id_temporada=temporada['Idt']) }}" class="button">Ir al Draft de Partido</a>
+    </section>
+
     <!-- Enlaces de navegación -->
-    <div>
+    <div class="navigation">
         <a href="{{ url_for('gestionar_temporadas') }}">Volver a Gestión de Temporadas</a>
         <a href="{{ url_for('admin_dashboard') }}" style="margin-left: 20px;">Volver al Admin Dashboard</a>
     </div>
