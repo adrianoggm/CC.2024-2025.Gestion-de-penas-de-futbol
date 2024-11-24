@@ -1,21 +1,27 @@
 <h1>Gestión de Temporadas</h1>
 <a href="{{ url_for('añadir_temporada') }}">Añadir Temporada</a>
 <table>
-    <tr>
-        <th>Temporada</th>
-        <th>Acciones</th>
-    </tr>
-    {% for temporada in temporadas %}
-    <tr>
-        <td>
-            Temporada: {{ temporada['Fechaini'] }} - {{ temporada['Fechafin'] }}
-        </td>
-        <td>
-            <a href="{{ url_for('visualizar_temporada', id_temporada=temporada['Idt']) }}">Ver Detalles</a>
-            <form action="{{ url_for('eliminar_temporada', id_temporada=temporada['Idt']) }}" method="post" onsubmit="return confirm('¿Estás seguro de que deseas eliminar esta temporada?');" style="display:inline;">
-                <button type="submit">Eliminar</button>
-            </form>
-        </td>
-    </tr>
-    {% endfor %}
+    <thead>
+        <tr>
+            <th>ID Temporada</th>
+            <th>Temporada</th>
+            <th>Acciones</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for temporada in temporadas %}
+        <tr>
+            <td>{{ temporada['Idt'] }}</td> <!-- Mostrar el ID de la temporada -->
+            <td>
+                Temporada: {{ temporada['Fechaini'] }} - {{ temporada['Fechafin'] }}
+            </td>
+            <td>
+                <a href="{{ url_for('visualizar_temporada', id_temporada=temporada['Idt']) }}">Ver Detalles</a>
+                <form action="{{ url_for('eliminar_temporada', id_temporada=temporada['Idt']) }}" method="post" onsubmit="return confirm('¿Estás seguro de que deseas eliminar esta temporada?');" style="display:inline;">
+                    <button type="submit">Eliminar</button>
+                </form>
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
 </table>

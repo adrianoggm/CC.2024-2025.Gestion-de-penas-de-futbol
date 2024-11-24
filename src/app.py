@@ -341,6 +341,24 @@ def añadir_temporada():
 
     return render_template('añadir_temporada.html')
 
+@app.route('/admin/gestionar_temporadas/eliminar/<int:id_temporada>', methods=['POST'])
+def eliminar_temporada(id_temporada):
+    if 'Idpena' not in session:
+        flash('Por favor, inicia sesión como administrador.')
+        return redirect(url_for('login'))
+
+    conn = get_db_connection()
+    # Verificar y eliminar la temporada
+    conn.execute("""
+        DELETE FROM TEMPORADA
+        WHERE Idt = ? AND Idpena = ?
+    """, (id_temporada, session['Idpena']))
+    conn.commit()
+    conn.close()
+
+    flash('Temporada eliminada correctamente.')
+    return redirect(url_for('gestionar_temporadas'))
+
 
 @app.route('/admin/visualizar_temporada/<int:id_temporada>', methods=['GET', 'POST'])
 def visualizar_temporada(id_temporada):

@@ -3,7 +3,7 @@ import sys
 import os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../src')))
 import pytest
-from src.app import app, get_db_connection
+from src.app import app
 import sqlite3
 import pytest
 import json
@@ -23,84 +23,88 @@ def init_db():
     c.execute("PRAGMA foreign_keys = ON;")
     
     # Aquí se crean las tablas necesarias para las pruebas
-    c.execute(""" CREATE TABLE IF NOT EXISTS PENA (
-        Idpena INTEGER PRIMARY KEY AUTOINCREMENT,
-        Nombre TEXT,
-        Admin TEXT 
-    )""")
-    c.execute(""" CREATE TABLE IF NOT EXISTS JUGADOR (
-        Idjugador INTEGER PRIMARY KEY AUTOINCREMENT,
-        Nombre TEXT,
-        Apellidos TEXT,
-        Nacionalidad TEXT
-    )""")
+    c.execute(""" CREATE TABLE IF NOT EXISTS PENA(
+            Idpena INTEGER PRIMARY KEY AUTOINCREMENT,
+            Nombre TEXT,
+            Admin  TEXT 
+            )""")
+    c.execute(""" CREATE TABLE IF NOT EXISTS JUGADOR(
+            Idjugador INTEGER PRIMARY KEY AUTOINCREMENT,
+            Nombre TEXT,
+            Apellidos TEXT,
+            Nacionalidad TEXT
+            )""")
     c.execute(""" CREATE TABLE IF NOT EXISTS JUGADORPENA (
-        Idjugador INTEGER,
+            Idjugador INTEGER,
+            Idpena INTEGER,
+            Mote TEXT,
+            Posicion TEXT,
+            PRIMARY KEY (Idjugador,Idpena),
+            FOREIGN KEY (Idjugador) REFERENCES JUGADOR(Idjugador) ON UPDATE CASCADE ON DELETE CASCADE,
+            FOREIGN KEY (Idpena) REFERENCES PENA(Idpena) ON UPDATE CASCADE ON DELETE CASCADE
+            )""")
+    c.execute(""" CREATE TABLE IF NOT EXISTS TEMPORADA (
         Idpena INTEGER,
-        Mote TEXT,
-        Posicion TEXT,
-        PRIMARY KEY (Idjugador, Idpena),
-        FOREIGN KEY (Idjugador) REFERENCES JUGADOR(Idjugador) ON UPDATE CASCADE ON DELETE CASCADE,
+        Idt INTEGER PRIMARY KEY AUTOINCREMENT,
+        Fechaini DATE,
+        Fechafin DATE,
         FOREIGN KEY (Idpena) REFERENCES PENA(Idpena) ON UPDATE CASCADE ON DELETE CASCADE
     )""")
-    c.execute(""" CREATE TABLE IF NOT EXISTS TEMPORADA (
-        Idt INTEGER PRIMARY KEY AUTOINCREMENT,
-        Fecha TEXT
-    )""")
     c.execute(""" CREATE TABLE IF NOT EXISTS JUGADORTEMPORADA (
-        Idjugador INTEGER,
+            Idjugador INTEGER,
+            Idpena INTEGER,
+            Idt INTEGER,
+            VICT INTEGER DEFAULT 0,
+            DERR INTEGER DEFAULT 0,
+            EMP INTEGER DEFAULT 0,
+            Calidad REAL DEFAULT 5 CHECK(Calidad BETWEEN 0 AND 10),
+            PRIMARY KEY (Idjugador,Idpena,Idt),
+            FOREIGN KEY (Idjugador) REFERENCES JUGADOR(Idjugador) ON UPDATE CASCADE ON DELETE CASCADE,
+            FOREIGN KEY (Idpena) REFERENCES PENA(Idpena) ON UPDATE CASCADE ON DELETE CASCADE,
+            FOREIGN KEY (Idt) REFERENCES TEMPORADA(Idt) ON UPDATE CASCADE ON DELETE CASCADE
+            )""")
+    c.execute("""CREATE TABLE IF NOT EXISTS PARTIDO (
+        Idp INTEGER PRIMARY KEY AUTOINCREMENT,
         Idpena INTEGER,
         Idt INTEGER,
-        VICT INTEGER DEFAULT 0,
-        DERR INTEGER DEFAULT 0,
-        EMP INTEGER DEFAULT 0,
-        Calidad REAL DEFAULT 5 CHECK(Calidad BETWEEN 0 AND 10),
-        PRIMARY KEY (Idjugador, Idpena, Idt),
-        FOREIGN KEY (Idjugador) REFERENCES JUGADOR(Idjugador) ON UPDATE CASCADE ON DELETE CASCADE,
-        FOREIGN KEY (Idpena) REFERENCES PENA(Idpena) ON UPDATE CASCADE ON DELETE CASCADE,
-        FOREIGN KEY (Idt) REFERENCES TEMPORADA(Idt) ON UPDATE CASCADE ON DELETE CASCADE
-    )""")
-    c.execute(""" CREATE TABLE IF NOT EXISTS PARTIDO (
-        Idp INTEGER,
-        Idpena INTEGER,
-        Idt INTEGER,
-        PRIMARY KEY (Idp, Idpena, Idt),
         FOREIGN KEY (Idpena) REFERENCES PENA(Idpena) ON UPDATE CASCADE ON DELETE CASCADE,
         FOREIGN KEY (Idt) REFERENCES TEMPORADA(Idt) ON UPDATE CASCADE ON DELETE CASCADE
     )""")
     c.execute(""" CREATE TABLE IF NOT EXISTS EQUIPO (
-        Ide INTEGER,
+        Ide INTEGER PRIMARY KEY AUTOINCREMENT,
         Idp INTEGER,
         Idpena INTEGER,
         Idt INTEGER,
-        PRIMARY KEY (Ide, Idp, Idpena, Idt),
         FOREIGN KEY (Idp) REFERENCES PARTIDO(Idp) ON UPDATE CASCADE ON DELETE CASCADE,
         FOREIGN KEY (Idpena) REFERENCES PENA(Idpena) ON UPDATE CASCADE ON DELETE CASCADE,
         FOREIGN KEY (Idt) REFERENCES TEMPORADA(Idt) ON UPDATE CASCADE ON DELETE CASCADE
     )""")
     c.execute(""" CREATE TABLE IF NOT EXISTS EJUGADOR (
+        Id INTEGER PRIMARY KEY AUTOINCREMENT,
         Ide INTEGER,
         Idp INTEGER,
         Idjugador INTEGER,
         Goles INTEGER DEFAULT 0,
         Asistencias INTEGER DEFAULT 0,
         Val REAL DEFAULT 5 CHECK(Val BETWEEN 0 AND 10),
-        PRIMARY KEY (Ide, Idp, Idjugador),
         FOREIGN KEY (Idp) REFERENCES PARTIDO(Idp) ON UPDATE CASCADE ON DELETE CASCADE,
         FOREIGN KEY (Ide) REFERENCES EQUIPO(Ide) ON UPDATE CASCADE ON DELETE CASCADE,
         FOREIGN KEY (Idjugador) REFERENCES JUGADOR(Idjugador) ON UPDATE CASCADE ON DELETE CASCADE
     )""")
+    #c.execute("DELETE FROM users WHERE username = ?", ('adrianoggm',))
     c.execute(""" CREATE TABLE IF NOT EXISTS users (
-        username TEXT PRIMARY KEY,
-        password TEXT NOT NULL,
-        name TEXT NOT NULL,
-        Idjugador INTEGER,
+        username TEXT PRIMARY KEY,         -- Nombre de usuario único
+        password TEXT NOT NULL,                -- Contraseña almacenada como hash
+        name TEXT NOT NULL,                     -- Nombre del usuario
+        Idjugador INTEGER,                      
         FOREIGN KEY (Idjugador) REFERENCES JUGADOR(Idjugador) ON UPDATE CASCADE ON DELETE CASCADE
     )""")
+    #c.execute("DELETE FROM admins WHERE username = ?", ('Genadmin',))
+    #c.execute("DROP TABLE  admins ")
     c.execute(""" CREATE TABLE IF NOT EXISTS admins (
-        username TEXT PRIMARY KEY,
-        password TEXT NOT NULL,
-        Idpena TEXT,
+        username TEXT PRIMARY KEY,         -- Nombre de usuario único
+        password TEXT NOT NULL,                -- Contraseña almacenada como hash
+        Idpena TEXT ,                      
         FOREIGN KEY (Idpena) REFERENCES PENA(Idpena) ON UPDATE CASCADE ON DELETE CASCADE
     )""")
     
@@ -252,3 +256,76 @@ def test_editar_jugador(client, init_db):
     # Verificar que los cambios se reflejan
     response = client.get('/admin/gestionar_jugadores')
     assert 'Andresito Modificado' in response.get_data(as_text=True)  # Comprobar que el jugador editado se muestra
+
+
+
+    ##TEST HITO 3 
+def test_crear_temporada(client, init_db):
+    """Prueba la creación de una temporada."""
+    # Registrar y autenticar al administrador
+    client.post('/registration', data={
+        'user_type': 'admin',
+        'username': 'testadmin',
+        'password': 'testpass',
+        'confirm_password': 'testpass',
+        'nombre_peña': 'Peña Test'
+    })
+    client.post('/login', data={'username': 'testadmin', 'password': 'testpass'})
+
+    # Crear una temporada
+    response = client.post('/admin/gestionar_temporadas/añadir', data={
+        'fechaini': '2023-01-01',
+        'fechafin': '2023-12-31'
+    })
+    assert response.status_code == 302  # La creación redirige a la lista de temporadas
+
+    # Verificar que la temporada aparece en la lista
+    response = client.get('/admin/gestionar_temporadas')
+    assert response.status_code == 200  # La página debe cargarse correctamente
+    data = response.get_data(as_text=True)
+    assert '2023-01-01' in data  # Verifica que la fecha de inicio se muestra
+    assert '2023-12-31' in data  # Verifica que la fecha de fin se muestra
+def test_eliminar_temporada(client, init_db):
+    """Prueba la eliminación de una temporada."""
+    # Registrar y autenticar al administrador
+    client.post('/registration', data={
+        'user_type': 'admin',
+        'username': 'testadmin',
+        'password': 'testpass',
+        'confirm_password': 'testpass',
+        'nombre_peña': 'Peña Test'
+    })
+    client.post('/login', data={'username': 'testadmin', 'password': 'testpass'})
+
+    # Crear una temporada para eliminar
+    client.post('/admin/gestionar_temporadas/añadir', data={
+        'fechaini': '2023-01-01',
+        'fechafin': '2023-04-01'
+    })
+
+    # Obtener la lista de temporadas y verificar que contiene la temporada creada
+    response = client.get('/admin/gestionar_temporadas')
+    assert response.status_code == 200
+    data = response.get_data(as_text=True)
+
+    # Extraer el ID de la temporada basado en el formato del HTML
+    id_temporada = None
+    for line in data.splitlines():
+        if '<td>' in line and 'Temporada:' in data:  # Línea que contiene el ID de la temporada
+            try:
+                id_temporada = line.split('<td>')[1].split('</td>')[0].strip()
+                break
+            except IndexError:
+                continue
+
+    assert id_temporada is not None, "No se encontró el ID de la temporada en la respuesta"
+    
+    # Eliminar la temporada
+    response = client.post(f'/admin/gestionar_temporadas/eliminar/{id_temporada}')
+    assert response.status_code == 302  # Redirige después de eliminar
+
+    # Verificar que el ID de la temporada fue eliminado
+    response = client.get('/admin/gestionar_temporadas')
+    data = response.get_data(as_text=True)
+    assert id_temporada not in data
+
