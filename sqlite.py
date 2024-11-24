@@ -102,7 +102,7 @@ password = generate_password_hash('password') #1234 para adrianoggm
 #c.execute("INSERT INTO users(username,password,name,idjugador) VALUES (?, ?, ?, ?)",('adrianoggm', password, 'Adriano', '1'))
 #c.execute("INSERT INTO admins(username,password,Idpena) VALUES (?, ?, ?)",('Genadmin', password, '1'))
 conn.commit()
-c.execute("SELECT * FROM EJUGADOR ")
+c.execute("SELECT * FROM EQUIPO ")
 penas=c.fetchall()
 print(penas)
 conn.close()

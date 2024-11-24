@@ -342,26 +342,6 @@ def añadir_temporada():
     return render_template('añadir_temporada.html')
 
 
-@app.route('/admin/gestionar_temporadas/eliminar/<int:id_temporada>', methods=['POST'])
-def eliminar_temporada(id_temporada):
-    if 'Idpena' not in session:
-        flash('Por favor, inicia sesión como administrador.')
-        return redirect(url_for('login'))
-
-    conn = get_db_connection()
-    # Eliminar la temporada asociada a la peña
-    conn.execute("""
-        DELETE FROM TEMPORADA
-        WHERE Idt = ? AND Idpena = ?
-    """, (id_temporada, session['Idpena']))
-    conn.commit()
-    conn.close()
-
-    flash('Temporada eliminada correctamente.')
-    return redirect(url_for('gestionar_temporadas'))
-
-
-
 @app.route('/admin/visualizar_temporada/<int:id_temporada>', methods=['GET', 'POST'])
 def visualizar_temporada(id_temporada):
     if 'Idpena' not in session:
@@ -418,19 +398,62 @@ def visualizar_temporada(id_temporada):
         ORDER BY Puntos DESC, Porcentaje_victorias DESC
     """, (id_temporada, session['Idpena'])).fetchall()
 
-    # Lista de partidos
+    # Lista de partidos con resultados
     partidos = conn.execute("""
-        SELECT Idp, Idpena, Idt
-        FROM PARTIDO
-        WHERE Idt = ? AND Idpena = ?
-        ORDER BY Idp ASC
+        SELECT 
+            P.Idp, 
+            COALESCE(SUM(EJ1.Goles), 0) AS Goles_Equipo1,
+            COALESCE(SUM(EJ2.Goles), 0) AS Goles_Equipo2
+        FROM PARTIDO P
+        LEFT JOIN EQUIPO E1 ON P.Idp = E1.Idp AND E1.Ide = 1
+        LEFT JOIN EQUIPO E2 ON P.Idp = E2.Idp AND E2.Ide = 2
+        LEFT JOIN EJUGADOR EJ1 ON EJ1.Idp = E1.Idp AND EJ1.Ide = E1.Ide
+        LEFT JOIN EJUGADOR EJ2 ON EJ2.Idp = E2.Idp AND EJ2.Ide = E2.Ide
+        WHERE P.Idt = ? AND P.Idpena = ?
+        GROUP BY P.Idp
+        ORDER BY P.Idp ASC
     """, (id_temporada, session['Idpena'])).fetchall()
+
+    # Estadísticas avanzadas de jugadores
+    estadisticas_jugadores = conn.execute("""
+        SELECT 
+            JP.Idjugador,
+            JP.Mote,
+            COALESCE(SUM(EJ.Goles), 0) AS Total_Goles,
+            COALESCE(SUM(EJ.Asistencias), 0) AS Total_Asistencias,
+            COALESCE(ROUND(AVG(EJ.Val), 2), 0) AS Valoracion_Promedio
+        FROM JUGADORPENA JP
+        LEFT JOIN EJUGADOR EJ ON JP.Idjugador = EJ.Idjugador
+        LEFT JOIN EQUIPO E ON EJ.Ide = E.Ide
+        LEFT JOIN PARTIDO P ON E.Idp = P.Idp AND JP.Idpena = P.Idpena
+        WHERE P.Idt = ? AND JP.Idpena = ?
+        GROUP BY JP.Idjugador, JP.Mote
+        ORDER BY JP.Mote
+    """, (id_temporada, session['Idpena'])).fetchall()
+
+    # Convertir las filas en diccionarios para manipulación
+    jugadores = [dict(row) for row in jugadores]
+    estadisticas_jugadores = [dict(row) for row in estadisticas_jugadores]
+
+    # Agregar estadísticas avanzadas a los jugadores
+    for jugador in jugadores:
+        estadisticas = next(
+            (e for e in estadisticas_jugadores if e['Idjugador'] == jugador['Idjugador']),
+            None
+        )
+        if estadisticas:
+            jugador['Goles'] = estadisticas['Total_Goles']
+            jugador['Asistencias'] = estadisticas['Total_Asistencias']
+            jugador['Valoracion'] = estadisticas['Valoracion_Promedio']
+        else:
+            jugador['Goles'] = 0
+            jugador['Asistencias'] = 0
+            jugador['Valoracion'] = "N/A"
 
     # Jugadores disponibles para añadir a la temporada
     jugadores_disponibles = conn.execute("""
         SELECT JP.Idjugador, JP.Mote
         FROM JUGADORPENA JP
-        JOIN JUGADOR J ON JP.Idjugador = J.Idjugador
         WHERE JP.Idpena = ?
         AND JP.Idjugador NOT IN (
             SELECT Idjugador
@@ -446,6 +469,7 @@ def visualizar_temporada(id_temporada):
         temporada=temporada,
         jugadores=jugadores,
         partidos=partidos,
+        estadisticas_jugadores=estadisticas_jugadores,
         jugadores_disponibles=jugadores_disponibles
     )
 
@@ -603,6 +627,7 @@ def draft_partido(id_temporada):
                         SET EMP = EMP + 1
                         WHERE Idjugador = ? AND Idpena = ? AND Idt = ?
                     """, (jugador_id, session['Idpena'], id_temporada))
+                    
 
             conn.commit()
             session.pop('convocados', None)
@@ -617,13 +642,51 @@ def draft_partido(id_temporada):
         WHERE JT.Idpena = ? AND JT.Idt = ?
     """, (session['Idpena'], id_temporada)).fetchall()
 
-    # Obtener lista de convocados (si existe en la sesión)
     convocados = session.get('convocados', [])
     jugadores_convocados = [j for j in jugadores_disponibles if str(j['Idjugador']) in convocados]
 
     conn.close()
 
     return render_template('draft_partido.html', temporada=temporada, jugadores_disponibles=jugadores_disponibles, jugadores_convocados=jugadores_convocados)
+
+@app.route('/admin/ver_estadisticas_partido/<int:id_partido>', methods=['GET'])
+def ver_estadisticas_partido(id_partido):
+    if 'Idpena' not in session:
+        flash('Por favor, inicia sesión como administrador.')
+        return redirect(url_for('login'))
+
+    conn = get_db_connection()
+
+    # Obtener información básica del partido
+    partido = conn.execute("""
+        SELECT Idp, Idpena, Idt
+        FROM PARTIDO
+        WHERE Idp = ? AND Idpena = ?
+    """, (id_partido, session['Idpena'])).fetchone()
+
+    if not partido:
+        flash('Partido no encontrado.')
+        return redirect(url_for('gestionar_partidos'))
+
+        # Obtener estadísticas de los jugadores
+    estadisticas = conn.execute("""
+        SELECT 
+            E.Ide AS Equipo,
+            JP.Mote AS Jugador,
+            EJ.Goles,
+            EJ.Asistencias,
+            EJ.Val
+        FROM EJUGADOR EJ
+        JOIN EQUIPO E ON EJ.Ide = E.Ide
+        JOIN JUGADORPENA JP ON EJ.Idjugador = JP.Idjugador AND JP.Idpena = E.Idpena
+        WHERE EJ.Idp = ?
+        ORDER BY E.Ide, JP.Mote
+    """, (id_partido,)).fetchall()
+
+    conn.close()
+
+    return render_template('ver_estadisticas_partido.html', partido=partido, estadisticas=estadisticas)
+
 # Manejo de errores personalizados
 @app.errorhandler(404)
 def not_found(error):

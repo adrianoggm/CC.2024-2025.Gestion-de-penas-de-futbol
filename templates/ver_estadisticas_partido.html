@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Estadísticas del Partido</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+    <h1>Estadísticas del Partido {{ partido['Idp'] }}</h1>
+
+    <!-- Estadísticas por equipo -->
+    <section>
+        <h2>Equipo 1</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Jugador</th>
+                    <th>Goles</th>
+                    <th>Asistencias</th>
+                    <th>Valoración</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for estadistica in estadisticas %}
+                {% if estadistica['Equipo'] == 1 %}
+                <tr>
+                    <td>{{ estadistica['Jugador'] }}</td>
+                    <td>{{ estadistica['Goles'] }}</td>
+                    <td>{{ estadistica['Asistencias'] }}</td>
+                    <td>{{ estadistica['Val'] }}</td>
+                </tr>
+                {% endif %}
+                {% endfor %}
+            </tbody>
+        </table>
+    </section>
+
+    <section>
+        <h2>Equipo 2</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Jugador</th>
+                    <th>Goles</th>
+                    <th>Asistencias</th>
+                    <th>Valoración</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for estadistica in estadisticas %}
+                {% if estadistica['Equipo'] == 2 %}
+                <tr>
+                    <td>{{ estadistica['Jugador'] }}</td>
+                    <td>{{ estadistica['Goles'] }}</td>
+                    <td>{{ estadistica['Asistencias'] }}</td>
+                    <td>{{ estadistica['Val'] }}</td>
+                </tr>
+                {% endif %}
+                {% endfor %}
+            </tbody>
+        </table>
+    </section>
+
+    <a href="{{ url_for('visualizar_temporada', id_temporada=partido['Idt']) }}">Volver a la Temporada</a>
+</body>
+</html>

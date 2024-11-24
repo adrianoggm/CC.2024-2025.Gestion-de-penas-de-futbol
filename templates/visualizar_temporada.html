@@ -21,6 +21,9 @@
                     <th>Derrotas</th>
                     <th>Puntos</th>
                     <th>% Victorias</th>
+                    <th>Goles</th>
+                    <th>Asistencias</th>
+                    <th>Valoración Promedio</th>
                 </tr>
             </thead>
             <tbody>
@@ -32,6 +35,9 @@
                     <td>{{ jugador['DERR'] }}</td>
                     <td>{{ jugador['Puntos'] }}</td>
                     <td>{{ jugador['Porcentaje_victorias'] }}%</td>
+                    <td>{{ jugador['Goles'] }}</td>
+                    <td>{{ jugador['Asistencias'] }}</td>
+                    <td>{{ jugador['Valoracion'] }}</td>
                 </tr>
                 {% endfor %}
             </tbody>
@@ -60,16 +66,22 @@
             <thead>
                 <tr>
                     <th>ID Partido</th>
-                    <th>ID Peña</th>
-                    <th>ID Temporada</th>
+                    <th>Resultado</th>
+                    <th>Acción</th>
                 </tr>
             </thead>
             <tbody>
                 {% for partido in partidos %}
                 <tr>
                     <td>{{ partido['Idp'] }}</td>
-                    <td>{{ partido['Idpena'] }}</td>
-                    <td>{{ partido['Idt'] }}</td>
+                    <td>
+                        Equipo 1: {{ partido['Goles_Equipo1'] }} - Equipo 2: {{ partido['Goles_Equipo2'] }}
+                    </td>
+                    <td>
+                        <a href="{{ url_for('ver_estadisticas_partido', id_partido=partido['Idp']) }}">
+                            Ver Estadísticas
+                        </a>
+                    </td>
                 </tr>
                 {% endfor %}
             </tbody>
