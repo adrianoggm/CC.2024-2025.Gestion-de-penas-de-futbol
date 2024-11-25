@@ -3,20 +3,33 @@ from flask import Flask, flash,jsonify, render_template, request, make_response,
 import sqlite3
 from werkzeug.security import check_password_hash, generate_password_hash
 import os
+from logging_config import setup_logging
+
 app = Flask(__name__, template_folder='../templates', static_folder='../static')
 app.secret_key = 'supersecretkey'
 Admin=False
 
+
+# Configuración del logger
+logger = setup_logging("app")
+db_logger = setup_logging("db")
+
 db_path = os.path.join('', 'Gestion_Penas.db')
 
 def get_db_connection():
-    conn = sqlite3.connect(db_path)
-    conn.row_factory = sqlite3.Row  # Para obtener los resultados como diccionarios
-    return conn
+    try:
+        conn = sqlite3.connect(db_path)
+        conn.row_factory = sqlite3.Row  # Para obtener los resultados como diccionarios
+        db_logger.info("Conexión a la base de datos establecida.")
+        return conn
+    except sqlite3.Error as e:
+        db_logger.error(f"Error al conectar a la base de datos: {e}")
+        raise
 
-# Ruta de prueba
 @app.route('/', methods=['GET'])
 def ping():
+    logger.info("Ruta raíz accesada.")
+    #print("Ruta raíz accesada.")
     return render_template('index.html')
 
 
@@ -31,6 +44,7 @@ def registration_pena():
         # Validaciones simples
         if password != confirm_password:
             flash('Las contraseñas no coinciden. Por favor, intenta de nuevo.')
+            logger.warning(f"Error de coincidencia de contraseñas para el usuario: {username}.")
             return redirect(url_for('registration_pena'))
 
         conn = get_db_connection()
@@ -41,22 +55,25 @@ def registration_pena():
         existing_user = cursor.fetchone()
         
         if existing_user:
+            logger.warning(f"Intento de registro fallido. El nombre de usuario '{username}' ya existe.")
             flash('El nombre de usuario ya existe. Por favor, elige otro.')
             return redirect(url_for('registration_pena'))
 
         # Insertar en la tabla de peñas
         cursor.execute("INSERT INTO PENA (nombre) VALUES (?)", (nombre_peña,))
         id_peña = cursor.lastrowid  # Obtener el ID de la nueva peña
-
+        db_logger.info(f"Peña '{nombre_peña}' creada con ID {id_peña}.")
         # Insertar en la tabla de administradores con Idpena
         cursor.execute("INSERT INTO admins (username, password, Idpena) VALUES (?, ?, ?)",
                        (username, generate_password_hash(password), id_peña))
-
+        db_logger.info(f"Administrador '{username}' registrado para la peña con ID {id_peña}.")
         flash('Admin registrado exitosamente. Ahora puedes iniciar sesión.')
+        logger.info(f"Registro exitoso del administrador '{username}'.")
         conn.commit()
         conn.close()
+        logger.debug("Conexión a la base de datos cerrada.")
         return redirect(url_for('login'))  # Redirigir al login después del registro
-
+    logger.info("Formulario de registro de peña accedido mediante GET.")
     return render_template('registration_pena.html')  # Cargar el formulario de registro de peña
 
 @app.route('/registration_jugador', methods=['GET', 'POST'])
@@ -99,21 +116,36 @@ def login():
     if request.method == 'POST':
         username = request.form.get('username')
         password = request.form.get('password')
+        logger.info(f"Intento de inicio de sesión con el nombre de usuario: {username}.")
 
-        # Conectar a la base de datos y buscar el usuario
         conn = get_db_connection()
-        user = conn.execute('SELECT * FROM users WHERE username = ?', (username,)).fetchone()
-        
-        # Convertir el objeto Row en un diccionario
-        if user:
-            user = dict(user)
-        else:
-            user = conn.execute('SELECT * FROM admins WHERE username = ?', (username,)).fetchone()
+
+        try:
+            # Conectar a la base de datos y buscar el usuario
+            user = conn.execute('SELECT * FROM users WHERE username = ?', (username,)).fetchone()
+
+            # Convertir el objeto Row en un diccionario
             if user:
                 user = dict(user)
-                Admin=True
-        
-        conn.close()
+                logger.info(f"Usuario encontrado: {username}. Tipo: Jugador.")
+                Admin = False
+            else:
+                user = conn.execute('SELECT * FROM admins WHERE username = ?', (username,)).fetchone()
+                if user:
+                    user = dict(user)
+                    db_logger.info(f"Usuario encontrado: {username}. Tipo: Administrador.")
+                    Admin = True
+                else:
+                    logger.warning(f"Intento de inicio de sesión fallido. Usuario '{username}' no encontrado.")
+                    flash('Usuario o contraseña incorrectos. Inténtalo de nuevo.')
+                    return redirect(url_for('login'))
+        except Exception as e:
+            logger.error(f"Error durante la búsqueda del usuario '{username}': {e}", exc_info=True)
+            flash('Ocurrió un error. Inténtalo de nuevo.')
+            return redirect(url_for('login'))
+        finally:
+            conn.close()
+            logger.debug("Conexión a la base de datos cerrada.")
         # Verificar si el usuario existe y la contraseña es correcta
         if user and check_password_hash(user['password'], password):
            
@@ -122,19 +154,22 @@ def login():
                 session['username'] = user['username']
                 session['name'] = user['username'] 
                 session['Idpena']=user['Idpena']
+                logger.info(f"Administrador '{username}' inició sesión exitosamente.")
                 return redirect(url_for('admin_dashboard'))
             
             else:
                 session['username'] = user['username']
                 session['name'] = user['name'] 
                 session['Idjugador'] = user['Idjugador']
+                logger.info(f"Jugador '{username}' intentó iniciar sesión, pero la funcionalidad no está implementada.")
                 flash('Usuario no es admin funcionalidad aun no implementada.')
                 return redirect(url_for('login'))
             
         else:
+            logger.warning(f"Intento de inicio de sesión fallido para el usuario '{username}'. Contraseña incorrecta.")
             flash('Usuario o contraseña incorrectos. Inténtalo de nuevo.')
             return redirect(url_for('login'))
-    
+    logger.info("Formulario de registro de peña accedido mediante GET.")
     return render_template('login.html')
 # Ruta para el dashboard (página principal del usuario)
 @app.route('/admin_dashboard')
@@ -708,7 +743,13 @@ def ver_estadisticas_partido(id_partido):
 # Manejo de errores personalizados
 @app.errorhandler(404)
 def not_found(error):
+    logger.warning(f"Error 404: Ruta no encontrada. {request.path}")
     return make_response(jsonify({"error": "No encontrado"}), 404)
+
+@app.errorhandler(500)
+def internal_error(error):
+    logger.error(f"Error 500: {error}")
+    return make_response(jsonify({"error": "Error interno del servidor"}), 500)
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=4000, debug=True)

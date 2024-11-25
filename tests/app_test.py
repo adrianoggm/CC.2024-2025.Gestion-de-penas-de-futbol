@@ -111,7 +111,7 @@ def init_db():
     conn.commit()  # Asegúrate de guardar los cambios
     app.config['DATABASE'] = conn  # Conectar la aplicación a esta base de datos temporal
 
-    yield  # Aquí se ejecutan las pruebas
+    yield  conn# Aquí se ejecutan las pruebas
 
     conn.close()  # Cierra la conexión después de las pruebas
 
@@ -328,4 +328,39 @@ def test_eliminar_temporada(client, init_db):
     response = client.get('/admin/gestionar_temporadas')
     data = response.get_data(as_text=True)
     assert id_temporada not in data
+"""
+def test_añadir_jugador_a_temporada(client, init_db):
+   
+    conn = init_db  # Usar la conexión compartida
+    cursor = conn.cursor()
 
+    # Registrar una peña
+    cursor.execute("INSERT INTO PENA (Nombre, Admin) VALUES ('Peña Test', 'testadmin')")
+    id_pena = cursor.lastrowid
+
+    # Crear un jugador
+    cursor.execute("INSERT INTO JUGADOR (Nombre, Apellidos, Nacionalidad) VALUES ('Juan', 'Pérez', 'Española')")
+    id_jugador = cursor.lastrowid
+    cursor.execute("INSERT INTO JUGADORPENA (Idjugador, Idpena, Mote, Posicion) VALUES (?, ?, 'Juanito', 'Delantero')", (id_jugador, id_pena))
+
+    # Crear una temporada
+    cursor.execute("INSERT INTO TEMPORADA (Idpena, Fechaini, Fechafin) VALUES (?, '2023-01-01', '2023-12-31')", (id_pena,))
+    id_temporada = cursor.lastrowid
+
+    conn.commit()
+
+    # Autenticar como administrador
+    client.post('/login', data={'username': 'testadmin', 'password': 'testpass'})
+
+    # Añadir el jugador a la temporada
+    response = client.post(f'/admin/visualizar_temporada/{id_temporada}', data={
+        'jugador_id': id_jugador
+    })
+    #assert response.status_code == 302  # Redirige después de añadir
+
+    # Verificar que el jugador aparece en la temporada
+    response = client.get(f'/admin/visualizar_temporada/{id_temporada}')
+    assert response.status_code == 200
+    data = response.get_data(as_text=True)
+    assert 'Juanito' in data  # Verificar que el mote del jugador aparece en la clasificación
+"""
