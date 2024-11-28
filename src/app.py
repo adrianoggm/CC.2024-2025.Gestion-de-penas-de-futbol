@@ -75,9 +75,10 @@ def registration_pena():
         return redirect(url_for('login'))  # Redirigir al login después del registro
     logger.info("Formulario de registro de peña accedido mediante GET.")
     return render_template('registration_pena.html')  # Cargar el formulario de registro de peña
-
 @app.route('/registration_jugador', methods=['GET', 'POST'])
 def registration_jugador():
+    logger.info("Acceso al formulario de registro de jugador.")
+
     if request.method == 'POST':
         username = request.form['username']
         password = request.form['password']
@@ -90,29 +91,48 @@ def registration_jugador():
         # Validaciones simples
         if password != confirm_password:
             flash('Las contraseñas no coinciden. Por favor, intenta de nuevo.')
+            logger.warning(f"Error de coincidencia de contraseñas para el jugador: {username}.")
             return redirect(url_for('registration_jugador'))
 
-        conn = get_db_connection()
-        cursor = conn.cursor()
+        try:
+            conn = get_db_connection()
+            cursor = conn.cursor()
+            logger.debug("Conexión a la base de datos establecida.")
 
-        # Insertar en la tabla de jugadores
-        cursor.execute("INSERT INTO JUGADOR (Nombre, Apellidos, Nacionalidad) VALUES (?, ?, ?)",
-                       (username, '', nacionalidad))  # Puedes personalizar Apellidos
-        id_jugador = cursor.lastrowid  # Obtener el ID del nuevo jugador
+            # Insertar en la tabla de jugadores
+            cursor.execute("INSERT INTO JUGADOR (Nombre, Apellidos, Nacionalidad) VALUES (?, ?, ?)",
+                           (username, '', nacionalidad))
+            id_jugador = cursor.lastrowid  # Obtener el ID del nuevo jugador
+            db_logger.info(f"Jugador '{username}' creado con ID {id_jugador}.")
 
-        # Insertar en la tabla JUGADORPENA
-        cursor.execute("INSERT INTO JUGADORPENA (Idjugador, Idpena, Mote, Posicion) VALUES (?, ?, ?, ?)",
-                       (id_jugador, id_peña, mote, posicion))
+            # Insertar en la tabla JUGADORPENA
+            cursor.execute("INSERT INTO JUGADORPENA (Idjugador, Idpena, Mote, Posicion) VALUES (?, ?, ?, ?)",
+                           (id_jugador, id_peña, mote, posicion))
+            db_logger.info(f"Jugador '{username}' asociado a la peña ID {id_peña} con mote '{mote}' y posición '{posicion}'.")
 
-        flash('Jugador registrado exitosamente. Ahora puedes iniciar sesión.')
-        conn.commit()
-        conn.close()
+            flash('Jugador registrado exitosamente. Ahora puedes iniciar sesión.')
+            logger.info(f"Jugador '{username}' registrado exitosamente.")
+            
+            conn.commit()
+            logger.debug("Transacciones de la base de datos confirmadas.")
+        except sqlite3.Error as e:
+            logger.error(f"Error en la base de datos durante el registro de jugador '{username}': {e}", exc_info=True)
+            flash("Ocurrió un error en el registro. Por favor, inténtalo más tarde.")
+            return redirect(url_for('registration_jugador'))
+        finally:
+            if conn:
+                conn.close()
+                logger.debug("Conexión a la base de datos cerrada.")
+
         return redirect(url_for('login'))  # Redirigir al login después del registro
 
     return render_template('registration_jugador.html')  # Cargar el formulario de registro de jugador
-# Ruta de login
+
+
 @app.route('/login', methods=['GET', 'POST'])
 def login():
+    logger.info("Acceso al formulario de inicio de sesión.")
+
     if request.method == 'POST':
         username = request.form.get('username')
         password = request.form.get('password')
@@ -139,63 +159,68 @@ def login():
                     logger.warning(f"Intento de inicio de sesión fallido. Usuario '{username}' no encontrado.")
                     flash('Usuario o contraseña incorrectos. Inténtalo de nuevo.')
                     return redirect(url_for('login'))
-        except Exception as e:
+        except sqlite3.Error as e:
             logger.error(f"Error durante la búsqueda del usuario '{username}': {e}", exc_info=True)
             flash('Ocurrió un error. Inténtalo de nuevo.')
             return redirect(url_for('login'))
         finally:
             conn.close()
             logger.debug("Conexión a la base de datos cerrada.")
+
         # Verificar si el usuario existe y la contraseña es correcta
         if user and check_password_hash(user['password'], password):
-           
-            
-            if(Admin==True):
+            if Admin:
                 session['username'] = user['username']
-                session['name'] = user['username'] 
-                session['Idpena']=user['Idpena']
+                session['name'] = user['username']
+                session['Idpena'] = user['Idpena']
                 logger.info(f"Administrador '{username}' inició sesión exitosamente.")
                 return redirect(url_for('admin_dashboard'))
-            
             else:
                 session['username'] = user['username']
-                session['name'] = user['name'] 
+                session['name'] = user['name']
                 session['Idjugador'] = user['Idjugador']
                 logger.info(f"Jugador '{username}' intentó iniciar sesión, pero la funcionalidad no está implementada.")
-                flash('Usuario no es admin funcionalidad aun no implementada.')
+                flash('Usuario no es admin funcionalidad aún no implementada.')
                 return redirect(url_for('login'))
-            
         else:
             logger.warning(f"Intento de inicio de sesión fallido para el usuario '{username}'. Contraseña incorrecta.")
             flash('Usuario o contraseña incorrectos. Inténtalo de nuevo.')
             return redirect(url_for('login'))
-    logger.info("Formulario de registro de peña accedido mediante GET.")
+
     return render_template('login.html')
-# Ruta para el dashboard (página principal del usuario)
+
+
 @app.route('/admin_dashboard')
 def admin_dashboard():
     if 'username' not in session:
-        # Si no hay sesión iniciada, redirigir al login
+        logger.warning("Intento de acceso al dashboard sin iniciar sesión.")
         flash('Por favor, inicia sesión primero.')
         return redirect(url_for('login'))
-    
-    # Puedes utilizar los datos del usuario almacenados en la sesión
+
     username = session.get('username')
+    logger.info(f"Acceso al dashboard por el usuario: {username}.")
     return render_template('admin_dashboard.html', username=username)
+
     
-# Gestión de jugadores
 @app.route('/admin/gestionar_jugadores')
 def gestionar_jugadores():
     if 'Idpena' not in session:
+        logger.warning("Acceso no autorizado a la gestión de jugadores.")
         flash('Por favor, inicia sesión como administrador.')
         return redirect(url_for('login'))
 
-    # Aquí puedes obtener los datos de jugadores desde la base de datos
     conn = get_db_connection()
-    id=session['Idpena']
-    jugadores = conn.execute('SELECT * FROM JUGADORPENA WHERE idpena = ?', (id,)).fetchall()
-    conn.close()
-    
+    try:
+        id = session['Idpena']
+        jugadores = conn.execute('SELECT * FROM JUGADORPENA WHERE idpena = ?', (id,)).fetchall()
+        logger.info(f"Gestión de jugadores accedida por el administrador de la peña ID {id}.")
+    except sqlite3.Error as e:
+        logger.error(f"Error al obtener los jugadores para la peña ID {id}: {e}", exc_info=True)
+        jugadores = []
+    finally:
+        conn.close()
+        logger.debug("Conexión a la base de datos cerrada.")
+
     return render_template('gestionar_jugadores.html', jugadores=jugadores)
 
 # Gestión de partidos
@@ -211,11 +236,10 @@ def gestionar_partidos():
     conn.close()
 
     return render_template('gestionar_partidos.html', partidos=partidos)
-
-# Ruta para añadir jugador
 @app.route('/admin/gestionar_jugadores/añadir_jugador', methods=['GET', 'POST'])
 def añadir_jugador():
     if 'Idpena' not in session:
+        logger.warning("Acceso no autorizado a la funcionalidad de añadir jugador.")
         flash('Por favor, inicia sesión como administrador.')
         return redirect(url_for('login'))
     
@@ -225,38 +249,49 @@ def añadir_jugador():
         nacionalidad = request.form['nacionalidad']
         mote = request.form['mote']
         posicion = request.form['posicion']
-        
-        # Insertar en la tabla JUGADOR y luego en JUGADORPENA
+
+        logger.info(f"Intento de añadir jugador. Nombre: {nombre}, Mote: {mote}, Posición: {posicion}, Peña ID: {session.get('Idpena')}")
+
         conn = get_db_connection()
-        cursor = conn.cursor()
-        
-        cursor.execute("INSERT INTO JUGADOR (Nombre, Apellidos, Nacionalidad) VALUES (?, ?, ?)",
-                       (nombre, apellidos, nacionalidad))
-        
-        # Obtener el Idjugador recién insertado
-        id_jugador = cursor.lastrowid
-        id_pena = session['Idpena']
-        
-        cursor.execute("INSERT INTO JUGADORPENA (Idjugador, Idpena, Mote, Posicion) VALUES (?, ?, ?, ?)",
-                       (id_jugador, id_pena, mote, posicion))
-        
-        conn.commit()
-        conn.close()
-        
-        flash('Jugador añadido exitosamente.')
+        try:
+            cursor = conn.cursor()
+            # Insertar en la tabla JUGADOR
+            cursor.execute("INSERT INTO JUGADOR (Nombre, Apellidos, Nacionalidad) VALUES (?, ?, ?)",
+                           (nombre, apellidos, nacionalidad))
+            id_jugador = cursor.lastrowid
+            db_logger.info(f"Jugador '{nombre}' creado con ID {id_jugador}.")
+
+            # Insertar en la tabla JUGADORPENA
+            id_pena = session['Idpena']
+            cursor.execute("INSERT INTO JUGADORPENA (Idjugador, Idpena, Mote, Posicion) VALUES (?, ?, ?, ?)",
+                           (id_jugador, id_pena, mote, posicion))
+            db_logger.info(f"Jugador ID {id_jugador} asociado a la peña ID {id_pena} como '{mote}' ({posicion}).")
+
+            conn.commit()
+            flash('Jugador añadido exitosamente.')
+            logger.info(f"Jugador '{nombre}' añadido exitosamente.")
+        except sqlite3.Error as e:
+            logger.error(f"Error al añadir jugador '{nombre}': {e}", exc_info=True)
+            flash('Error al añadir el jugador. Por favor, inténtalo de nuevo.')
+        finally:
+            conn.close()
+            logger.debug("Conexión a la base de datos cerrada.")
+
         return redirect(url_for('gestionar_jugadores'))
     
+    logger.info("Formulario para añadir jugador accedido mediante GET.")
     return render_template('añadir_jugador.html')
+
 
 @app.route('/admin/gestionar_jugadores/editar/<int:jugador_id>', methods=['GET', 'POST'])
 def editar_jugador(jugador_id):
     if 'Idpena' not in session:
+        logger.warning(f"Acceso no autorizado a la edición del jugador ID {jugador_id}.")
         flash('Por favor, inicia sesión como administrador.')
         return redirect(url_for('login'))
 
     conn = get_db_connection()
 
-    # Si el formulario ha sido enviado, actualizar el jugador en la base de datos
     if request.method == 'POST':
         nombre = request.form['nombre']
         apellidos = request.form['apellidos']
@@ -264,75 +299,116 @@ def editar_jugador(jugador_id):
         mote = request.form['mote']
         posicion = request.form['posicion']
 
-        # Actualizar los datos del jugador
-        conn.execute("""
-            UPDATE JUGADOR
-            SET Nombre = ?, Apellidos = ?, Nacionalidad = ?
-            WHERE Idjugador = ?
-        """, (nombre, apellidos, nacionalidad, jugador_id))
+        logger.info(f"Intento de edición para el jugador ID {jugador_id}. Nuevos datos: Nombre={nombre}, Apellidos={apellidos}, Nacionalidad={nacionalidad}, Mote={mote}, Posición={posicion}")
+
+        try:
+            # Actualizar los datos del jugador en la tabla JUGADOR
+            conn.execute("""
+                UPDATE JUGADOR
+                SET Nombre = ?, Apellidos = ?, Nacionalidad = ?
+                WHERE Idjugador = ?
+            """, (nombre, apellidos, nacionalidad, jugador_id))
+            db_logger.info(f"Jugador ID {jugador_id} actualizado en la tabla JUGADOR.")
+
+            # Actualizar los datos en la tabla JUGADORPENA
+            conn.execute("""
+                UPDATE JUGADORPENA
+                SET Mote = ?, Posicion = ?
+                WHERE Idjugador = ? AND Idpena = ?
+            """, (mote, posicion, jugador_id, session['Idpena']))
+            db_logger.info(f"Jugador ID {jugador_id} actualizado en la tabla JUGADORPENA.")
+
+            conn.commit()
+            flash('Jugador actualizado correctamente.')
+            logger.info(f"Jugador ID {jugador_id} actualizado exitosamente.")
+        except sqlite3.Error as e:
+            logger.error(f"Error al actualizar el jugador ID {jugador_id}: {e}", exc_info=True)
+            flash('Error al actualizar el jugador. Por favor, inténtalo de nuevo.')
+        finally:
+            conn.close()
+            logger.debug("Conexión a la base de datos cerrada.")
+
+        return redirect(url_for('gestionar_jugadores'))
+
+    try:
+        # Obtener los datos actuales del jugador
+        jugador = conn.execute("""
+            SELECT JUGADOR.*, JUGADORPENA.Mote, JUGADORPENA.Posicion
+            FROM JUGADOR
+            JOIN JUGADORPENA ON JUGADOR.Idjugador = JUGADORPENA.Idjugador
+            WHERE JUGADOR.Idjugador = ? AND JUGADORPENA.Idpena = ?
+        """, (jugador_id, session['Idpena'])).fetchone()
+
+        if jugador is None:
+            logger.warning(f"Intento de editar jugador no encontrado. ID: {jugador_id}, Peña ID: {session['Idpena']}.")
+            flash('Jugador no encontrado.')
+            return redirect(url_for('gestionar_jugadores'))
         
-        # Actualizar los datos en la tabla JUGADORPENA
-        conn.execute("""
-            UPDATE JUGADORPENA
-            SET Mote = ?, Posicion = ?
-            WHERE Idjugador = ? AND Idpena = ?
-        """, (mote, posicion, jugador_id, session['Idpena']))
-        
-        conn.commit()
+        logger.info(f"Datos cargados para edición del jugador ID {jugador_id}.")
+    except sqlite3.Error as e:
+        logger.error(f"Error al cargar los datos del jugador ID {jugador_id}: {e}", exc_info=True)
+        flash('Error al cargar los datos del jugador. Por favor, inténtalo de nuevo.')
+        return redirect(url_for('gestionar_jugadores'))
+    finally:
         conn.close()
-        
-        flash('Jugador actualizado correctamente.')
-        return redirect(url_for('gestionar_jugadores'))
-
-    # Obtener los datos actuales del jugador
-    jugador = conn.execute("""
-        SELECT JUGADOR.*, JUGADORPENA.Mote, JUGADORPENA.Posicion
-        FROM JUGADOR
-        JOIN JUGADORPENA ON JUGADOR.Idjugador = JUGADORPENA.Idjugador
-        WHERE JUGADOR.Idjugador = ? AND JUGADORPENA.Idpena = ?
-    """, (jugador_id, session['Idpena'])).fetchone()
-
-    conn.close()
-
-    if jugador is None:
-        flash('Jugador no encontrado.')
-        return redirect(url_for('gestionar_jugadores'))
+        logger.debug("Conexión a la base de datos cerrada.")
 
     return render_template('editar_jugador.html', jugador=jugador)
 
 @app.route('/admin/gestionar_jugadores/eliminar/<int:jugador_id>', methods=['POST'])
 def eliminar_jugador(jugador_id):
     if 'Idpena' not in session:
+        logger.warning(f"Acceso no autorizado al intento de eliminación del jugador ID {jugador_id}.")
         flash('Por favor, inicia sesión como administrador.')
         return redirect(url_for('login'))
 
     conn = get_db_connection()
-    
-    # Eliminar el jugador de ambas tablas
-    conn.execute("DELETE FROM JUGADORPENA WHERE Idjugador = ? AND Idpena = ?", (jugador_id, session['Idpena']))
-    conn.execute("DELETE FROM JUGADOR WHERE Idjugador = ?", (jugador_id,))
-    
-    conn.commit()
-    conn.close()
-    
-    flash('Jugador eliminado correctamente.')
+
+    try:
+        # Eliminar el jugador de ambas tablas
+        conn.execute("DELETE FROM JUGADORPENA WHERE Idjugador = ? AND Idpena = ?", (jugador_id, session['Idpena']))
+        db_logger.info(f"Jugador ID {jugador_id} eliminado de la tabla JUGADORPENA (Peña ID: {session['Idpena']}).")
+
+        conn.execute("DELETE FROM JUGADOR WHERE Idjugador = ?", (jugador_id,))
+        db_logger.info(f"Jugador ID {jugador_id} eliminado de la tabla JUGADOR.")
+
+        conn.commit()
+        flash('Jugador eliminado correctamente.')
+        logger.info(f"Jugador ID {jugador_id} eliminado exitosamente.")
+    except sqlite3.Error as e:
+        logger.error(f"Error al eliminar el jugador ID {jugador_id}: {e}", exc_info=True)
+        flash('Error al eliminar el jugador. Por favor, inténtalo de nuevo.')
+    finally:
+        conn.close()
+        logger.debug("Conexión a la base de datos cerrada.")
+
     return redirect(url_for('gestionar_jugadores'))
 
 
 @app.route('/admin/gestionar_temporadas', methods=['GET'])
 def gestionar_temporadas():
     if 'Idpena' not in session:
+        logger.warning("Acceso no autorizado a la gestión de temporadas.")
         flash('Por favor, inicia sesión como administrador.')
         return redirect(url_for('login'))
 
     conn = get_db_connection()
-    # Obtener todas las temporadas asociadas a la peña del administrador
-    temporadas = conn.execute("""
-        SELECT * FROM TEMPORADA
-        WHERE Idpena = ?
-        ORDER BY Idt DESC
-    """, (session['Idpena'],)).fetchall()
-    conn.close()
+
+    try:
+        # Obtener todas las temporadas asociadas a la peña del administrador
+        temporadas = conn.execute("""
+            SELECT * FROM TEMPORADA
+            WHERE Idpena = ?
+            ORDER BY Idt DESC
+        """, (session['Idpena'],)).fetchall()
+        logger.info(f"Se recuperaron {len(temporadas)} temporadas para la Peña ID {session['Idpena']}.")
+    except sqlite3.Error as e:
+        logger.error(f"Error al recuperar temporadas para Peña ID {session['Idpena']}: {e}", exc_info=True)
+        flash('Error al recuperar las temporadas. Por favor, inténtalo de nuevo.')
+        return redirect(url_for('admin_dashboard'))
+    finally:
+        conn.close()
+        logger.debug("Conexión a la base de datos cerrada.")
 
     return render_template('gestionar_temporadas.html', temporadas=temporadas)
 
