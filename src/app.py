@@ -5,7 +5,8 @@ from werkzeug.security import check_password_hash, generate_password_hash
 import os
 from logging_config import setup_logging
 
-app = Flask(__name__, template_folder='../templates', static_folder='../static')
+#app = Flask(__name__, template_folder='../src/templates', static_folder='../src/static')
+app = Flask(__name__, template_folder='templates', static_folder='static')
 app.secret_key = 'supersecretkey'
 Admin=False
 
@@ -828,7 +829,7 @@ def internal_error(error):
     return make_response(jsonify({"error": "Error interno del servidor"}), 500)
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=4000, debug=True)
+    app.run(host='0.0.0.0', port=5000, debug=True)
 
 
     
