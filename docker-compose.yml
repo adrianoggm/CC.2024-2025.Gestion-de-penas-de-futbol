@@ -1,0 +1,34 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: app-container
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./src:/app/src
+      - ./logs:/app/logs
+      - ./Gestion_Penas.db:/app/Gestion_Penas.db
+    depends_on:
+      - db
+
+  db:
+    image: postgres:15
+    container_name: db-container
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: gestion_penas
+    volumes:
+      - db_data:/var/lib/postgresql/data
+
+  logs:
+    image: alpine
+    container_name: logs-container
+    volumes:
+      - ./logs:/app/logs
+    command: tail -f /dev/null
+
+volumes:
+  db_data:
