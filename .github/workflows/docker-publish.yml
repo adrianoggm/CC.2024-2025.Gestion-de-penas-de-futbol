@@ -51,7 +51,7 @@ jobs:
     - name: Run Cluster Tests
       run: |
         sleep 10  # Esperar para que los contenedores estén listos
-        python test_cluster.py
+        python tests/test_cluster.py
 
     - name: Tear down Docker Compose
       run: docker-compose down
