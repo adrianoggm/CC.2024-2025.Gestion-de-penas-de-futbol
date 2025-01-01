@@ -6,129 +6,133 @@ Este documento corresponde al **Hito 4** del proyecto de **gestión de peñas y 
 
 ---
 
-## 📋 Resumen de Actividades del Hito 4 🚀
+## 📋 1,5 puntos: Documentación y Justificación de la Estructura del Clúster de Contenedores
 
-En este hito, hemos llevado la aplicación **Python** existente —que abarca la lógica de negocio y los servicios básicos— a un entorno **contenedorizado**, haciendo uso de herramientas como **Docker** y **Docker Compose**. Este paso nos permite escalar la aplicación, simplificar la configuración y asegurar la coherencia de entornos entre desarrollo y producción.
+El clúster está compuesto por tres servicios principales, cada uno con una responsabilidad específica. La estructura del clúster está diseñada para facilitar la escalabilidad y el mantenimiento de la aplicación:
 
-Además, se ha reforzado la lógica de orquestación de los contenedores con un enfoque en **módulos independientes**:  
-1. **Contenedor de la Aplicación (App Service)**  
-2. **Contenedor de Logs (Logging Service)**  
-3. **Contenedor de Base de Datos (DB Service)**  
+1. **App (Contenedor de Aplicación)**:
+   - Ejecuta la lógica de la aplicación desarrollada en Flask, incluyendo la API y las vistas web.
+   - Responsable de procesar solicitudes HTTP y realizar consultas a la base de datos.
 
-Gracias a esta arquitectura, cada contenedor se encarga de una responsabilidad clara, permitiendo mayor flexibilidad y escalabilidad.
+2. **DB (Contenedor de Base de Datos)**:
+   - Implementado con PostgreSQL para garantizar un sistema de almacenamiento fiable y persistente.
+   - Utilizado para almacenar datos críticos como usuarios, partidos y estadísticas.
 
----
+3. **Logs (Contenedor de Logs)**:
+   - Encargado de gestionar y centralizar los logs generados por los otros contenedores.
+   - Garantiza que los datos de logs estén organizados y accesibles para análisis.
 
-## Contenedores y Servicios Orquestados ⚙️
-
-A continuación, se describen los contenedores y servicios incluidos en esta fase del proyecto, detallando su propósito y las tecnologías empleadas.
-
-### 1. Contenedor de la Aplicación (App Service)
-- **Propósito**: Ejecutar el núcleo de la aplicación (lógica de negocio, API y vistas web).  
-- **Tecnología Base**:  
-  - **Python 3.12** como entorno principal.  
-  - **Flask** para la gestión de endpoints y vistas.  
-- **Configuración Clave**:  
-  - **Dockerfile** independiente que incluye dependencias específicas (`requirements.txt`).  
-  - Exposición del puerto `5000` para el servicio HTTP, configurable con variables de entorno.
-
-### 2. Contenedor de Logs (Logging Service)
-- **Propósito**: Centralizar y gestionar los logs generados por el sistema.  
-- **Tecnología Base**:  
-  - **Alpine Linux**, utilizado para gestionar de forma eficiente los logs.  
-- **Configuración Clave**:  
-  - Montaje de volúmenes para recopilar logs desde los otros contenedores.  
-  - Logs persistentes que se sincronizan con el entorno de desarrollo.
-
-### 3. Contenedor de Base de Datos (DB Service)
-- **Propósito**: Proveer una base de datos persistente y escalable para almacenar información de la aplicación (usuarios, peñas, partidos, resultados, etc.).  
-- **Tecnología Base**:  
-  - **PostgreSQL 15** como sistema de gestión de bases de datos.  
-- **Configuración Clave**:  
-  - Variables de entorno para definir credenciales seguras.  
-  - Volumen dedicado para garantizar la persistencia de datos incluso en caso de reinicio del contenedor.
+El diseño modular asegura que cada servicio sea independiente, mejorando la mantenibilidad y permitiendo la reutilización de componentes.
 
 ---
 
-## Dockerfile y Publicación en GitHub Packages 📦
+## 📋 1,5 puntos: Documentación y Justificación de la Configuración de Cada Contenedor
 
-Para cada contenedor principal se ha creado un **Dockerfile** que define las dependencias, las variables de entorno y los pasos de compilación y ejecución. Algunos puntos esenciales:
+### **App (Contenedor de Aplicación)**
+- **Base**: Imagen `python:3.12-slim`.
+- **Justificación**: Imagen ligera que incluye todo lo necesario para ejecutar aplicaciones en Python, reduciendo el tiempo de despliegue.
+- **Configuración**:
+  - Usa `requirements.txt` para instalar dependencias como Flask y SQLAlchemy.
+  - Expone el puerto `5000` para servir las solicitudes HTTP.
 
-1. **Imagen Base**  
-   - Se seleccionó una imagen ligera y oficial (`python:3.12-slim`) para el contenedor de la aplicación.  
-   - Para la base de datos, se utiliza la imagen oficial de **PostgreSQL** desde Docker Hub.  
+### **DB (Contenedor de Base de Datos)**
+- **Base**: Imagen oficial `postgres:15`.
+- **Justificación**: Imagen optimizada y confiable para entornos de producción.
+- **Configuración**:
+  - Variables de entorno para configurar credenciales de usuario (`POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`).
+  - Volumen asignado para garantizar la persistencia de datos.
 
-2. **Instalación de Dependencias**  
-   - Se utiliza `requirements.txt` para instalar librerías esenciales como Flask y SQLAlchemy.  
-
-3. **Copia del Código Fuente**  
-   - El código fuente de la aplicación se copia dentro del contenedor.  
-
-4. **Ejecución de la Aplicación**  
-   - El comando `CMD` ejecuta el servidor Flask, exponiendo el servicio en el puerto `5000`.
-
-Adicionalmente, se configuró **GitHub Actions** para subir automáticamente estas imágenes a **GitHub Packages**. Este flujo CI/CD incluye los siguientes pasos:
-
-- Construcción de las imágenes Docker para cada contenedor.  
-- Ejecución de pruebas automatizadas para validar los servicios.  
-- Publicación de las imágenes Docker en GitHub Packages tras pasar las validaciones.
-
----
-
-## Fichero de Composición - `docker-compose.yaml` 🗄️
-
-El archivo de composición (`docker-compose.yaml`) se encarga de orquestar los contenedores y definir cómo deben interactuar. Los puntos más relevantes incluyen:
-
-1. **Redes**  
-   - Uso de una red tipo `bridge` para permitir la comunicación entre contenedores (App ↔ DB ↔ Logs).  
-
-2. **Volúmenes**  
-   - Volumen persistente para la base de datos y almacenamiento de logs.
-
-3. **Dependencias**  
-   - Uso de `depends_on` para asegurar que la base de datos esté lista antes de iniciar la aplicación.
-
-4. **Configuración de Variables de Entorno**  
-   - Configuración de credenciales de la base de datos y personalización del puerto de la aplicación.
+### **Logs (Contenedor de Logs)**
+- **Base**: Imagen `alpine`.
+- **Justificación**: Su ligereza reduce el consumo de recursos y es ideal para operaciones básicas de logging.
+- **Configuración**:
+  - Montaje de volúmenes para almacenar logs generados por la aplicación y la base de datos.
 
 ---
 
-## Tests Implementados para Validar la Orquestación 🧪
+## 📋 2 puntos: Documentación del Dockerfile del Contenedor con la Lógica de la Aplicación
 
-Durante este hito, se han implementado pruebas específicas para garantizar el correcto despliegue y la comunicación entre contenedores:
+El **Dockerfile** del contenedor de la aplicación define los pasos necesarios para construir y ejecutar el servicio:
 
-1. **Test de Conexión a la Base de Datos**  
-   - Verifica que la aplicación pueda conectarse al contenedor de PostgreSQL y realizar consultas básicas.  
+1. **Imagen Base**:
+   - Se utiliza `python:3.12-slim` para garantizar compatibilidad con Python 3.12 y optimizar el tamaño de la imagen.
 
-2. **Test de Logs**  
-   - Asegura que los logs generados por la aplicación se capturen correctamente en el contenedor de logs.
+2. **Instalación de Dependencias**:
+   - Se copian los archivos `requirements.txt` al contenedor.
+   - Se instalan las dependencias mediante `pip`.
 
-3. **Test de Endpoint de Salud**  
-   - Comprueba que la ruta `/health` de la aplicación está accesible, indicando que el servicio se ejecuta correctamente.
+3. **Copia del Código Fuente**:
+   - El código fuente de la aplicación se copia al directorio `/app` del contenedor.
 
-Estos tests se ejecutan automáticamente como parte del pipeline de integración continua definido en el **Hito 2**.
+4. **Ejecución de la Aplicación**:
+   - El contenedor inicia el servidor Flask utilizando el comando `python app.py`.
 
 ---
 
-## 📝 Implementación de Logs en la Arquitectura Contenedorizada
+## 📋 1,5 puntos: Contenedor Subido Correctamente a GitHub Packages y Documentación de la Actualización Automática
 
-Se ha continuado el desarrollo iniciado en el hito anterior para centralizar la gestión de logs:
+### **Publicación Automática en GitHub Packages**
+Se ha configurado un flujo CI/CD en GitHub Actions para automatizar la construcción y publicación del contenedor de la aplicación:
 
-1. **Separación de Contenedores**  
-   - Los logs de la aplicación y la base de datos se recopilan y gestionan en un contenedor independiente.  
+1. **Construcción de la Imagen**:
+   - El workflow se ejecuta automáticamente con cada push a las ramas `main` o `dev`.
 
-2. **Persistencia y Análisis**  
-   - Los datos de logs se almacenan en volúmenes persistentes para análisis posterior.  
+2. **Pruebas Automatizadas**:
+   - Antes de publicar la imagen, se ejecutan pruebas para validar la funcionalidad del clúster.
 
-3. **Documentación**  
-   - La configuración y el análisis de logs están documentados en:  
-     **[Documentación Logs](/LogsContenedores.md)**
+3. **Publicación**:
+   - La imagen se sube a **GitHub Container Registry (GHCR)** bajo el nombre:
+     ```
+     ghcr.io/<usuario>/cc.2024-2025.gestion-de-penas-de-futbol:latest
+     ```
+
+📄 **Documentación del flujo CI/CD**:
+- Configurado en el archivo: `.github/workflows/docker-publish.yml`.
+
+---
+
+## 📋 2 puntos: Documentación del Fichero de Composición del Clúster de Contenedores (`docker-compose.yaml`)
+
+El archivo `docker-compose.yaml` define la orquestación de los servicios. Sus principales características son:
+
+1. **Servicios**:
+   - `app`: Ejecuta la aplicación Flask y se conecta al servicio `db`.
+   - `db`: Contenedor PostgreSQL para almacenamiento de datos.
+   - `logs`: Contenedor para centralizar logs generados por `app` y `db`.
+
+2. **Redes**:
+   - Se define una red `bridge` para permitir la comunicación interna entre los contenedores.
+
+3. **Volúmenes**:
+   - Volumen persistente para la base de datos (`db_data`).
+   - Directorio de logs montado en el contenedor `logs`.
+
+4. **Dependencias**:
+   - Uso de `depends_on` para garantizar que el contenedor de la base de datos esté listo antes de iniciar la aplicación.
+
+---
+
+## 📋 1,5 puntos: Correcta Implementación y Ejecución de los Tests para Validar el Clúster
+
+Se han desarrollado pruebas específicas para garantizar el correcto despliegue del clúster:
+
+1. **Test de Conexión a la Base de Datos**:
+   - Verifica que la aplicación pueda conectarse al contenedor PostgreSQL y realizar consultas.
+
+2. **Test de Logs**:
+   - Comprueba que los logs generados por la aplicación y la base de datos son capturados correctamente por el contenedor de logs.
+
+3. **Test de Endpoint Salud (`/health`)**:
+   - Realiza una solicitud HTTP para confirmar que el servicio de la aplicación está operativo.
+
+📄 **Ejecución de Tests**:
+- Automatizados como parte del flujo CI/CD.
+- Implementados en el script `test_cluster.py`.
 
 ---
 
 ## 🎯 Conclusión
 
-Con el **Hito 4**, la aplicación se ha transformado en un sistema completamente **contenedorizado**, mejorando su escalabilidad, replicabilidad y mantenimiento. La orquestación mediante **Docker Compose** y la publicación automatizada en **GitHub Packages** refuerzan la integración continua y el despliegue continuo dentro del proyecto.
+Con este **Hito 4**, el proyecto ha evolucionado hacia un sistema completamente **contenedorizado**, lo que mejora la escalabilidad, el mantenimiento y la replicabilidad. La integración de pruebas automáticas y la publicación de imágenes en **GitHub Packages** refuerzan la calidad del sistema y facilitan su despliegue.
 
-A medida que el sistema evolucione, se incluirán nuevos servicios y contenedores, manteniendo los principios de modularidad y escalabilidad planteados desde el inicio del proyecto.
-
+Este avance representa un paso importante en la implementación de conceptos clave de **Cloud Computing**, acercándonos a un sistema robusto y escalable para la gestión de peñas y ligas individuales deportivas.
