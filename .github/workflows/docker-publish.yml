@@ -1,13 +1,13 @@
-name: Build and Publish Docker Image
+name: Build, Test, and Publish Docker Image
 
 on:
   push:
     branches:
-       - main
-       - dev
+      - main
+      - dev
 
 jobs:
-  build:
+  build-test:
     runs-on: ubuntu-latest
 
     steps:
@@ -28,3 +28,25 @@ jobs:
         tags: ghcr.io/adrianoggm/cc.2024-2025.gestion-de-penas-de-futbol:latest
         labels: |
           org.opencontainers.image.source=https://github.com/adrianoggm/CC.2024-2025.Gestion-de-penas-de-futbol
+
+    - name: Start Docker Compose
+      run: docker-compose up -d
+
+    - name: Install Python and dependencies for testing
+      uses: actions/setup-python@v2
+      with:
+        python-version: 3.12
+
+    - name: Install test dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install requests
+
+    - name: Run Cluster Tests
+      run: |
+        sleep 15  # Espera para que los contenedores estén listos
+        python test_cluster.py
+
+    - name: Tear down Docker Compose
+      run: docker-compose down
+

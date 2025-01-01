@@ -817,6 +817,18 @@ def ver_estadisticas_partido(id_partido):
 
     return render_template('ver_estadisticas_partido.html', partido=partido, estadisticas=estadisticas)
 
+
+
+app.route('/test_db')
+def test_db():
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT 1")
+        return "✅ Base de datos conectada correctamente", 200
+    except Exception as e:
+        return f"❌ Error al conectar con la base de datos: {e}", 500
+    
 # Manejo de errores personalizados
 @app.errorhandler(404)
 def not_found(error):
