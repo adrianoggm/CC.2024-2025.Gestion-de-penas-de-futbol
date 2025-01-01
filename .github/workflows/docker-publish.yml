@@ -1,20 +1,19 @@
-name: Build and Publish Docker Image
+name: Build, Test, and Publish Docker Image
 
 on:
   push:
     branches:
-       - main
-       - dev
+      - main
+      - dev
 
 jobs:
-  build:
+  build-test:
     runs-on: ubuntu-latest
 
     steps:
     - name: Checkout code
       uses: actions/checkout@v2
 
-      
     - name: Log in to GitHub Container Registry
       uses: docker/login-action@v2
       with:
@@ -27,3 +26,32 @@ jobs:
       with:
         push: true
         tags: ghcr.io/adrianoggm/cc.2024-2025.gestion-de-penas-de-futbol:latest
+        labels: |
+          org.opencontainers.image.source=https://github.com/adrianoggm/CC.2024-2025.Gestion-de-penas-de-futbol
+
+    - name: Install Docker Compose
+      run: |
+        sudo curl -L "https://github.com/docker/compose/releases/download/v2.20.2/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+        sudo chmod +x /usr/local/bin/docker-compose
+        docker-compose version
+
+    - name: Start Docker Compose
+      run: docker-compose up -d
+
+    - name: Install Python and dependencies for testing
+      uses: actions/setup-python@v2
+      with:
+        python-version: 3.12
+
+    - name: Install test dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install requests
+
+    - name: Run Cluster Tests
+      run: |
+        sleep 10  # Esperar para que los contenedores estén listos
+        python tests/test_cluster.py
+
+    - name: Tear down Docker Compose
+      run: docker-compose down
