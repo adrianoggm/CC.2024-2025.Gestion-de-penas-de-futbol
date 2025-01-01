@@ -29,6 +29,12 @@ jobs:
         labels: |
           org.opencontainers.image.source=https://github.com/adrianoggm/CC.2024-2025.Gestion-de-penas-de-futbol
 
+    - name: Install Docker Compose
+      run: |
+        sudo curl -L "https://github.com/docker/compose/releases/download/v2.20.2/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+        sudo chmod +x /usr/local/bin/docker-compose
+        docker-compose version
+
     - name: Start Docker Compose
       run: docker-compose up -d
 
@@ -44,9 +50,8 @@ jobs:
 
     - name: Run Cluster Tests
       run: |
-        sleep 15  # Espera para que los contenedores estén listos
+        sleep 10  # Esperar para que los contenedores estén listos
         python test_cluster.py
 
     - name: Tear down Docker Compose
       run: docker-compose down
-
