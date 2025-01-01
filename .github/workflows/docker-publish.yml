@@ -14,7 +14,6 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v2
 
-      
     - name: Log in to GitHub Container Registry
       uses: docker/login-action@v2
       with:
@@ -27,3 +26,5 @@ jobs:
       with:
         push: true
         tags: ghcr.io/adrianoggm/cc.2024-2025.gestion-de-penas-de-futbol:latest
+        labels: |
+          org.opencontainers.image.source=https://github.com/adrianoggm/CC.2024-2025.Gestion-de-penas-de-futbol
