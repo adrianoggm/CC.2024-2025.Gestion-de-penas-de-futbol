@@ -162,6 +162,7 @@ def test_database():
 
 if __name__ == "__main__":
     test_app()
+```
 ### Explicación de las pruebas
 
 **1. `test_app()`**  
