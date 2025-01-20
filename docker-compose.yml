@@ -9,9 +9,11 @@ services:
     volumes:
       - ./src:/app/src
       - ./logs:/app/logs
-      - ./Gestion_Penas.db:/app/Gestion_Penas.db
     depends_on:
       - db
+    environment:
+      # URL para conectarse a la base de datos Postgres
+      DATABASE_URL: postgresql://user:password@db:5432/gestion_penas
 
   db:
     image: postgres:15
@@ -22,6 +24,7 @@ services:
       POSTGRES_DB: gestion_penas
     volumes:
       - db_data:/var/lib/postgresql/data
+      - ./Gestion_Penas.sql:/docker-entrypoint-initdb.d/Gestion_Penas.sql
 
   logs:
     image: alpine

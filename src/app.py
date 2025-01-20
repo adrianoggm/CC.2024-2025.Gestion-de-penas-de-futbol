@@ -1,39 +1,64 @@
 from datetime import datetime
-from flask import Flask, flash,jsonify, render_template, request, make_response,render_template_string, redirect, url_for,session
-import sqlite3
+from flask import Flask, flash, jsonify, render_template, request, make_response, redirect, url_for, session
+import psycopg2
+import psycopg2.extras  # Para obtener cursores tipo diccionario
+import os
+from logging_config import setup_logging
+from flask import Flask, flash, jsonify, render_template, request, make_response, render_template_string, redirect, url_for, session
+import psycopg2          # CAMBIO: reemplaza import sqlite3
+import psycopg2.extras   # Para cursores tipo diccionario
 from werkzeug.security import check_password_hash, generate_password_hash
 import os
 from logging_config import setup_logging
 
-#app = Flask(__name__, template_folder='../src/templates', static_folder='../src/static')
 app = Flask(__name__, template_folder='templates', static_folder='static')
 app.secret_key = 'supersecretkey'
-Admin=False
-
+Admin = False
 
 # Configuración del logger
 logger = setup_logging("app")
 db_logger = setup_logging("db")
 
-db_path = os.path.join('', 'Gestion_Penas.db')
+# Leemos la URL de conexión para Postgres
+DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://user:password@db:5432/gestion_penas")
 
 def get_db_connection():
+    """
+    Retorna una conexión a PostgreSQL usando psycopg2.
+    """
     try:
-        conn = sqlite3.connect(db_path)
-        conn.row_factory = sqlite3.Row  # Para obtener los resultados como diccionarios
+        conn = psycopg2.connect(DATABASE_URL)
         db_logger.info("Conexión a la base de datos establecida.")
         return conn
-    except sqlite3.Error as e:
-        db_logger.error(f"Error al conectar a la base de datos: {e}")
+    except psycopg2.Error as e:
+        db_logger.error(f"Error al conectar a la base de datos PostgreSQL: {e}")
         raise
 
 @app.route('/', methods=['GET'])
 def ping():
     logger.info("Ruta raíz accesada.")
-    #print("Ruta raíz accesada.")
     return render_template('index.html')
 
+# --- Ruta de prueba ---
+@app.route('/test_db')
+def test_db():
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+        
+        # Ejemplo: listar tablas en el schema 'public'
+        cursor.execute("SELECT table_name FROM information_schema.tables WHERE table_schema='public';")
+        tables = cursor.fetchall()
 
+        cursor.close()
+        conn.close()
+
+        return jsonify({"tables": [dict(row) for row in tables]})
+    except Exception as e:
+        logger.error(f"Error realizando consulta de prueba: {e}")
+        return jsonify({"error": str(e)}), 500
+
+# --- REGISTRO DE PEÑA ---
 @app.route('/registration_pena', methods=['GET', 'POST'])
 def registration_pena():
     if request.method == 'POST':
@@ -42,40 +67,54 @@ def registration_pena():
         confirm_password = request.form['confirm_password']
         nombre_peña = request.form['nombre_peña']
 
-        # Validaciones simples
         if password != confirm_password:
-            flash('Las contraseñas no coinciden. Por favor, intenta de nuevo.')
-            logger.warning(f"Error de coincidencia de contraseñas para el usuario: {username}.")
+            flash('Las contraseñas no coinciden.')
+            logger.warning(f"Contraseñas no coinciden para usuario: {username}.")
             return redirect(url_for('registration_pena'))
 
-        conn = get_db_connection()
-        cursor = conn.cursor()
+        try:
+            conn = get_db_connection()
+            cursor = conn.cursor()
 
-        # Verificar si el nombre de usuario ya existe
-        cursor.execute("SELECT * FROM admins WHERE username = ?", (username,))
-        existing_user = cursor.fetchone()
-        
-        if existing_user:
-            logger.warning(f"Intento de registro fallido. El nombre de usuario '{username}' ya existe.")
-            flash('El nombre de usuario ya existe. Por favor, elige otro.')
+            # Verificar si el nombre de usuario ya existe
+            cursor.execute("SELECT * FROM admins WHERE username = %s", (username,))
+            existing_user = cursor.fetchone()
+            
+            if existing_user:
+                logger.warning(f"Usuario '{username}' ya existe.")
+                flash('El nombre de usuario ya existe.')
+                return redirect(url_for('registration_pena'))
+
+            # Insertar en la tabla de PENA, recuperando su ID con RETURNING
+            cursor.execute("INSERT INTO PENA (nombre) VALUES (%s) RETURNING idpena", (nombre_peña,))
+            id_peña = cursor.fetchone()[0]  # CAMBIO: en Postgres se obtiene con RETURNING
+
+            db_logger.info(f"Peña '{nombre_peña}' creada con ID {id_peña}.")
+
+            # Insertar en la tabla de admins
+            cursor.execute(
+                "INSERT INTO admins (username, password, Idpena) VALUES (%s, %s, %s)",
+                (username, generate_password_hash(password), id_peña)
+            )
+            db_logger.info(f"Admin '{username}' registrado para la peña ID {id_peña}.")
+
+            conn.commit()
+            cursor.close()
+            conn.close()
+
+            flash('Admin registrado exitosamente. Ahora puedes iniciar sesión.')
+            return redirect(url_for('login'))
+
+        except psycopg2.Error as e:  # CAMBIO: psycopg2.Error
+            logger.error(f"Error en la base de datos: {e}", exc_info=True)
+            flash("Ocurrió un error en la base de datos.")
             return redirect(url_for('registration_pena'))
 
-        # Insertar en la tabla de peñas
-        cursor.execute("INSERT INTO PENA (nombre) VALUES (?)", (nombre_peña,))
-        id_peña = cursor.lastrowid  # Obtener el ID de la nueva peña
-        db_logger.info(f"Peña '{nombre_peña}' creada con ID {id_peña}.")
-        # Insertar en la tabla de administradores con Idpena
-        cursor.execute("INSERT INTO admins (username, password, Idpena) VALUES (?, ?, ?)",
-                       (username, generate_password_hash(password), id_peña))
-        db_logger.info(f"Administrador '{username}' registrado para la peña con ID {id_peña}.")
-        flash('Admin registrado exitosamente. Ahora puedes iniciar sesión.')
-        logger.info(f"Registro exitoso del administrador '{username}'.")
-        conn.commit()
-        conn.close()
-        logger.debug("Conexión a la base de datos cerrada.")
-        return redirect(url_for('login'))  # Redirigir al login después del registro
-    logger.info("Formulario de registro de peña accedido mediante GET.")
-    return render_template('registration_pena.html')  # Cargar el formulario de registro de peña
+    logger.info("Formulario de registro de peña (GET).")
+    return render_template('registration_pena.html')
+
+
+# --- REGISTRO DE JUGADOR ---
 @app.route('/registration_jugador', methods=['GET', 'POST'])
 def registration_jugador():
     logger.info("Acceso al formulario de registro de jugador.")
@@ -84,52 +123,52 @@ def registration_jugador():
         username = request.form['username']
         password = request.form['password']
         confirm_password = request.form['confirm_password']
-        id_peña = request.form['id_peña']  # ID de la peña a la que se unirá el jugador
+        id_peña = request.form['id_peña']  # ID de la peña
         mote = request.form['mote']
         posicion = request.form['posicion']
         nacionalidad = request.form['nacionalidad']
 
-        # Validaciones simples
         if password != confirm_password:
-            flash('Las contraseñas no coinciden. Por favor, intenta de nuevo.')
-            logger.warning(f"Error de coincidencia de contraseñas para el jugador: {username}.")
+            flash('Las contraseñas no coinciden.')
+            logger.warning(f"Contraseñas no coinciden para el jugador: {username}.")
             return redirect(url_for('registration_jugador'))
 
         try:
             conn = get_db_connection()
             cursor = conn.cursor()
-            logger.debug("Conexión a la base de datos establecida.")
 
-            # Insertar en la tabla de jugadores
-            cursor.execute("INSERT INTO JUGADOR (Nombre, Apellidos, Nacionalidad) VALUES (?, ?, ?)",
-                           (username, '', nacionalidad))
-            id_jugador = cursor.lastrowid  # Obtener el ID del nuevo jugador
+            # Insertar en la tabla JUGADOR, recuperar ID
+            cursor.execute(
+                "INSERT INTO JUGADOR (Nombre, Apellidos, Nacionalidad) VALUES (%s, %s, %s) RETURNING Idjugador",
+                (username, '', nacionalidad)
+            )
+            id_jugador = cursor.fetchone()[0]
             db_logger.info(f"Jugador '{username}' creado con ID {id_jugador}.")
 
-            # Insertar en la tabla JUGADORPENA
-            cursor.execute("INSERT INTO JUGADORPENA (Idjugador, Idpena, Mote, Posicion) VALUES (?, ?, ?, ?)",
-                           (id_jugador, id_peña, mote, posicion))
-            db_logger.info(f"Jugador '{username}' asociado a la peña ID {id_peña} con mote '{mote}' y posición '{posicion}'.")
+            # Insertar en JUGADORPENA
+            cursor.execute(
+                "INSERT INTO JUGADORPENA (Idjugador, Idpena, Mote, Posicion) VALUES (%s, %s, %s, %s)",
+                (id_jugador, id_peña, mote, posicion)
+            )
+            db_logger.info(f"Jugador '{username}' asociado a la peña {id_peña}.")
+
+            conn.commit()
+            cursor.close()
+            conn.close()
 
             flash('Jugador registrado exitosamente. Ahora puedes iniciar sesión.')
-            logger.info(f"Jugador '{username}' registrado exitosamente.")
-            
-            conn.commit()
-            logger.debug("Transacciones de la base de datos confirmadas.")
-        except sqlite3.Error as e:
-            logger.error(f"Error en la base de datos durante el registro de jugador '{username}': {e}", exc_info=True)
-            flash("Ocurrió un error en el registro. Por favor, inténtalo más tarde.")
+            logger.info(f"Jugador '{username}' registrado.")
+            return redirect(url_for('login'))
+
+        except psycopg2.Error as e:  # CAMBIO: psycopg2.Error
+            logger.error(f"Error durante registro del jugador '{username}': {e}", exc_info=True)
+            flash("Ocurrió un error en el registro del jugador.")
             return redirect(url_for('registration_jugador'))
-        finally:
-            if conn:
-                conn.close()
-                logger.debug("Conexión a la base de datos cerrada.")
 
-        return redirect(url_for('login'))  # Redirigir al login después del registro
-
-    return render_template('registration_jugador.html')  # Cargar el formulario de registro de jugador
+    return render_template('registration_jugador.html')
 
 
+# --- LOGIN ---
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     logger.info("Acceso al formulario de inicio de sesión.")
@@ -137,55 +176,58 @@ def login():
     if request.method == 'POST':
         username = request.form.get('username')
         password = request.form.get('password')
-        logger.info(f"Intento de inicio de sesión con el nombre de usuario: {username}.")
-
-        conn = get_db_connection()
+        logger.info(f"Intento de inicio de sesión: {username}.")
 
         try:
-            # Conectar a la base de datos y buscar el usuario
-            user = conn.execute('SELECT * FROM users WHERE username = ?', (username,)).fetchone()
+            conn = get_db_connection()
+            cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
 
-            # Convertir el objeto Row en un diccionario
+            # Buscar en 'users'
+            cursor.execute("SELECT * FROM users WHERE username = %s", (username,))
+            user = cursor.fetchone()
+
             if user:
-                user = dict(user)
-                logger.info(f"Usuario encontrado: {username}. Tipo: Jugador.")
                 Admin = False
+                user = dict(user)  # Convertir en dict si queremos manipular campos
+                logger.info(f"Usuario '{username}' encontrado en 'users'.")
             else:
-                user = conn.execute('SELECT * FROM admins WHERE username = ?', (username,)).fetchone()
+                # Si no está en users, buscar en admins
+                cursor.execute("SELECT * FROM admins WHERE username = %s", (username,))
+                user = cursor.fetchone()
                 if user:
-                    user = dict(user)
-                    db_logger.info(f"Usuario encontrado: {username}. Tipo: Administrador.")
                     Admin = True
+                    user = dict(user)
+                    logger.info(f"Usuario '{username}' encontrado en 'admins'.")
                 else:
-                    logger.warning(f"Intento de inicio de sesión fallido. Usuario '{username}' no encontrado.")
-                    flash('Usuario o contraseña incorrectos. Inténtalo de nuevo.')
+                    logger.warning(f"Usuario '{username}' no existe.")
+                    flash('Usuario o contraseña incorrectos.')
                     return redirect(url_for('login'))
-        except sqlite3.Error as e:
-            logger.error(f"Error durante la búsqueda del usuario '{username}': {e}", exc_info=True)
-            flash('Ocurrió un error. Inténtalo de nuevo.')
-            return redirect(url_for('login'))
-        finally:
-            conn.close()
-            logger.debug("Conexión a la base de datos cerrada.")
 
-        # Verificar si el usuario existe y la contraseña es correcta
-        if user and check_password_hash(user['password'], password):
-            if Admin:
-                session['username'] = user['username']
-                session['name'] = user['username']
-                session['Idpena'] = user['Idpena']
-                logger.info(f"Administrador '{username}' inició sesión exitosamente.")
-                return redirect(url_for('admin_dashboard'))
+            cursor.close()
+            conn.close()
+
+            # Verificar contraseña
+            if check_password_hash(user['password'], password):
+                if Admin:
+                    session['username'] = user['username']
+                    session['Idpena'] = user['idpena']  # Ojo con mayúsculas
+                    logger.info(f"Admin '{username}' inició sesión.")
+                    return redirect(url_for('admin_dashboard'))
+                else:
+                    session['username'] = user['username']
+                    session['name'] = user['name']
+                    session['Idjugador'] = user['idjugador']
+                    logger.info(f"Jugador '{username}' inició sesión (falta funcionalidad).")
+                    flash('Usuario no es admin; funcionalidad en desarrollo.')
+                    return redirect(url_for('login'))
             else:
-                session['username'] = user['username']
-                session['name'] = user['name']
-                session['Idjugador'] = user['Idjugador']
-                logger.info(f"Jugador '{username}' intentó iniciar sesión, pero la funcionalidad no está implementada.")
-                flash('Usuario no es admin funcionalidad aún no implementada.')
+                logger.warning(f"Contraseña incorrecta para '{username}'.")
+                flash('Usuario o contraseña incorrectos.')
                 return redirect(url_for('login'))
-        else:
-            logger.warning(f"Intento de inicio de sesión fallido para el usuario '{username}'. Contraseña incorrecta.")
-            flash('Usuario o contraseña incorrectos. Inténtalo de nuevo.')
+
+        except psycopg2.Error as e:
+            logger.error(f"Error al buscar usuario '{username}': {e}", exc_info=True)
+            flash('Ocurrió un error en la base de datos.')
             return redirect(url_for('login'))
 
     return render_template('login.html')
@@ -194,54 +236,66 @@ def login():
 @app.route('/admin_dashboard')
 def admin_dashboard():
     if 'username' not in session:
-        logger.warning("Intento de acceso al dashboard sin iniciar sesión.")
+        logger.warning("Intento de acceder al dashboard sin iniciar sesión.")
         flash('Por favor, inicia sesión primero.')
         return redirect(url_for('login'))
 
     username = session.get('username')
-    logger.info(f"Acceso al dashboard por el usuario: {username}.")
+    logger.info(f"Acceso al dashboard por: {username}.")
     return render_template('admin_dashboard.html', username=username)
 
-    
+
+# --- GESTIONAR JUGADORES ---
 @app.route('/admin/gestionar_jugadores')
 def gestionar_jugadores():
     if 'Idpena' not in session:
-        logger.warning("Acceso no autorizado a la gestión de jugadores.")
-        flash('Por favor, inicia sesión como administrador.')
+        logger.warning("Acceso no autorizado a gestionar jugadores.")
+        flash('Inicia sesión como administrador.')
         return redirect(url_for('login'))
 
-    conn = get_db_connection()
+    id_pena = session['Idpena']
     try:
-        id = session['Idpena']
-        jugadores = conn.execute('SELECT * FROM JUGADORPENA WHERE idpena = ?', (id,)).fetchall()
-        logger.info(f"Gestión de jugadores accedida por el administrador de la peña ID {id}.")
-    except sqlite3.Error as e:
-        logger.error(f"Error al obtener los jugadores para la peña ID {id}: {e}", exc_info=True)
-        jugadores = []
-    finally:
+        conn = get_db_connection()
+        cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+        cursor.execute("SELECT * FROM JUGADORPENA WHERE idpena = %s", (id_pena,))
+        jugadores = cursor.fetchall()
+        cursor.close()
         conn.close()
-        logger.debug("Conexión a la base de datos cerrada.")
+
+        logger.info(f"Obtenidos jugadores de la peña {id_pena}.")
+    except psycopg2.Error as e:
+        logger.error(f"Error al obtener jugadores de la peña {id_pena}: {e}", exc_info=True)
+        jugadores = []
 
     return render_template('gestionar_jugadores.html', jugadores=jugadores)
 
-# Gestión de partidos
+
+# --- GESTIONAR PARTIDOS ---
 @app.route('/admin/gestionar_partidos')
 def gestionar_partidos():
     if 'Idpena' not in session:
         flash('Por favor, inicia sesión como administrador.')
         return redirect(url_for('login'))
 
-    # Aquí puedes obtener los datos de los partidos desde la base de datos
-    conn = get_db_connection()
-    partidos = conn.execute('SELECT * FROM PARTIDO').fetchall()
-    conn.close()
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+        cursor.execute("SELECT * FROM PARTIDO")
+        partidos = cursor.fetchall()
+        cursor.close()
+        conn.close()
+    except psycopg2.Error as e:
+        logger.error(f"Error al obtener partidos: {e}", exc_info=True)
+        partidos = []
 
     return render_template('gestionar_partidos.html', partidos=partidos)
+
+# --- AÑADIR JUGADOR ---
 @app.route('/admin/gestionar_jugadores/añadir_jugador', methods=['GET', 'POST'])
 def añadir_jugador():
     if 'Idpena' not in session:
-        logger.warning("Acceso no autorizado a la funcionalidad de añadir jugador.")
-        flash('Por favor, inicia sesión como administrador.')
+        logger.warning("Acceso no autorizado para añadir jugador.")
+        flash('Inicia sesión como administrador.')
         return redirect(url_for('login'))
     
     if request.method == 'POST':
@@ -251,47 +305,55 @@ def añadir_jugador():
         mote = request.form['mote']
         posicion = request.form['posicion']
 
-        logger.info(f"Intento de añadir jugador. Nombre: {nombre}, Mote: {mote}, Posición: {posicion}, Peña ID: {session.get('Idpena')}")
+        id_pena = session['Idpena']
 
-        conn = get_db_connection()
+        logger.info(f"Añadir jugador: {nombre}, Mote: {mote}, Posición: {posicion}, Peña ID: {id_pena}")
+
         try:
+            conn = get_db_connection()
             cursor = conn.cursor()
-            # Insertar en la tabla JUGADOR
-            cursor.execute("INSERT INTO JUGADOR (Nombre, Apellidos, Nacionalidad) VALUES (?, ?, ?)",
-                           (nombre, apellidos, nacionalidad))
-            id_jugador = cursor.lastrowid
+
+            # Insertar en JUGADOR y recuperar Idjugador
+            cursor.execute(
+                "INSERT INTO JUGADOR (Nombre, Apellidos, Nacionalidad) VALUES (%s, %s, %s) RETURNING Idjugador",
+                (nombre, apellidos, nacionalidad)
+            )
+            id_jugador = cursor.fetchone()[0]
+
             db_logger.info(f"Jugador '{nombre}' creado con ID {id_jugador}.")
 
-            # Insertar en la tabla JUGADORPENA
-            id_pena = session['Idpena']
-            cursor.execute("INSERT INTO JUGADORPENA (Idjugador, Idpena, Mote, Posicion) VALUES (?, ?, ?, ?)",
-                           (id_jugador, id_pena, mote, posicion))
-            db_logger.info(f"Jugador ID {id_jugador} asociado a la peña ID {id_pena} como '{mote}' ({posicion}).")
-
+            # Asociar en JUGADORPENA
+            cursor.execute(
+                "INSERT INTO JUGADORPENA (Idjugador, Idpena, Mote, Posicion) VALUES (%s, %s, %s, %s)",
+                (id_jugador, id_pena, mote, posicion)
+            )
+            db_logger.info(f"Jugador {id_jugador} asociado a la peña {id_pena}.")
             conn.commit()
+
+            cursor.close()
+            conn.close()
+
             flash('Jugador añadido exitosamente.')
             logger.info(f"Jugador '{nombre}' añadido exitosamente.")
-        except sqlite3.Error as e:
-            logger.error(f"Error al añadir jugador '{nombre}': {e}", exc_info=True)
-            flash('Error al añadir el jugador. Por favor, inténtalo de nuevo.')
-        finally:
-            conn.close()
-            logger.debug("Conexión a la base de datos cerrada.")
+            return redirect(url_for('gestionar_jugadores'))
 
-        return redirect(url_for('gestionar_jugadores'))
-    
-    logger.info("Formulario para añadir jugador accedido mediante GET.")
+        except psycopg2.Error as e:
+            logger.error(f"Error al añadir jugador '{nombre}': {e}", exc_info=True)
+            flash('Error al añadir el jugador.')
+            return redirect(url_for('añadir_jugador'))
+
+    logger.info("Formulario para añadir jugador (GET).")
     return render_template('añadir_jugador.html')
 
-
+# --- EDITAR JUGADOR ---
 @app.route('/admin/gestionar_jugadores/editar/<int:jugador_id>', methods=['GET', 'POST'])
 def editar_jugador(jugador_id):
     if 'Idpena' not in session:
-        logger.warning(f"Acceso no autorizado a la edición del jugador ID {jugador_id}.")
-        flash('Por favor, inicia sesión como administrador.')
+        logger.warning(f"Acceso no autorizado para editar al jugador {jugador_id}.")
+        flash('Inicia sesión como administrador.')
         return redirect(url_for('login'))
 
-    conn = get_db_connection()
+    id_pena = session['Idpena']
 
     if request.method == 'POST':
         nombre = request.form['nombre']
@@ -300,59 +362,63 @@ def editar_jugador(jugador_id):
         mote = request.form['mote']
         posicion = request.form['posicion']
 
-        logger.info(f"Intento de edición para el jugador ID {jugador_id}. Nuevos datos: Nombre={nombre}, Apellidos={apellidos}, Nacionalidad={nacionalidad}, Mote={mote}, Posición={posicion}")
+        logger.info(f"Edición jugador {jugador_id}: Nombre={nombre}, Apellidos={apellidos}, Nacionalidad={nacionalidad}, Mote={mote}, Posición={posicion}")
 
         try:
-            # Actualizar los datos del jugador en la tabla JUGADOR
-            conn.execute("""
-                UPDATE JUGADOR
-                SET Nombre = ?, Apellidos = ?, Nacionalidad = ?
-                WHERE Idjugador = ?
-            """, (nombre, apellidos, nacionalidad, jugador_id))
-            db_logger.info(f"Jugador ID {jugador_id} actualizado en la tabla JUGADOR.")
+            conn = get_db_connection()
+            cursor = conn.cursor()
 
-            # Actualizar los datos en la tabla JUGADORPENA
-            conn.execute("""
+            # UPDATE en JUGADOR
+            cursor.execute("""
+                UPDATE JUGADOR
+                SET Nombre = %s, Apellidos = %s, Nacionalidad = %s
+                WHERE Idjugador = %s
+            """, (nombre, apellidos, nacionalidad, jugador_id))
+
+            # UPDATE en JUGADORPENA
+            cursor.execute("""
                 UPDATE JUGADORPENA
-                SET Mote = ?, Posicion = ?
-                WHERE Idjugador = ? AND Idpena = ?
-            """, (mote, posicion, jugador_id, session['Idpena']))
-            db_logger.info(f"Jugador ID {jugador_id} actualizado en la tabla JUGADORPENA.")
+                SET Mote = %s, Posicion = %s
+                WHERE Idjugador = %s AND Idpena = %s
+            """, (mote, posicion, jugador_id, id_pena))
 
             conn.commit()
-            flash('Jugador actualizado correctamente.')
-            logger.info(f"Jugador ID {jugador_id} actualizado exitosamente.")
-        except sqlite3.Error as e:
-            logger.error(f"Error al actualizar el jugador ID {jugador_id}: {e}", exc_info=True)
-            flash('Error al actualizar el jugador. Por favor, inténtalo de nuevo.')
-        finally:
+            cursor.close()
             conn.close()
-            logger.debug("Conexión a la base de datos cerrada.")
 
-        return redirect(url_for('gestionar_jugadores'))
+            flash('Jugador actualizado correctamente.')
+            logger.info(f"Jugador ID {jugador_id} actualizado.")
+            return redirect(url_for('gestionar_jugadores'))
 
+        except psycopg2.Error as e:
+            logger.error(f"Error al actualizar jugador {jugador_id}: {e}", exc_info=True)
+            flash('Error al actualizar el jugador.')
+            return redirect(url_for('gestionar_jugadores'))
+
+    # GET: cargar datos del jugador
     try:
-        # Obtener los datos actuales del jugador
-        jugador = conn.execute("""
+        conn = get_db_connection()
+        cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+        cursor.execute("""
             SELECT JUGADOR.*, JUGADORPENA.Mote, JUGADORPENA.Posicion
             FROM JUGADOR
             JOIN JUGADORPENA ON JUGADOR.Idjugador = JUGADORPENA.Idjugador
-            WHERE JUGADOR.Idjugador = ? AND JUGADORPENA.Idpena = ?
-        """, (jugador_id, session['Idpena'])).fetchone()
+            WHERE JUGADOR.Idjugador = %s AND JUGADORPENA.Idpena = %s
+        """, (jugador_id, id_pena))
+        jugador = cursor.fetchone()
+        cursor.close()
+        conn.close()
 
-        if jugador is None:
-            logger.warning(f"Intento de editar jugador no encontrado. ID: {jugador_id}, Peña ID: {session['Idpena']}.")
+        if not jugador:
+            logger.warning(f"Jugador no encontrado. ID: {jugador_id}, Peña: {id_pena}.")
             flash('Jugador no encontrado.')
             return redirect(url_for('gestionar_jugadores'))
-        
-        logger.info(f"Datos cargados para edición del jugador ID {jugador_id}.")
-    except sqlite3.Error as e:
-        logger.error(f"Error al cargar los datos del jugador ID {jugador_id}: {e}", exc_info=True)
-        flash('Error al cargar los datos del jugador. Por favor, inténtalo de nuevo.')
+
+        logger.info(f"Datos cargados para edición del jugador {jugador_id}.")
+    except psycopg2.Error as e:
+        logger.error(f"Error al cargar datos del jugador {jugador_id}: {e}", exc_info=True)
+        flash('Error al cargar los datos.')
         return redirect(url_for('gestionar_jugadores'))
-    finally:
-        conn.close()
-        logger.debug("Conexión a la base de datos cerrada.")
 
     return render_template('editar_jugador.html', jugador=jugador)
 
@@ -363,25 +429,34 @@ def eliminar_jugador(jugador_id):
         flash('Por favor, inicia sesión como administrador.')
         return redirect(url_for('login'))
 
-    conn = get_db_connection()
-
     try:
-        # Eliminar el jugador de ambas tablas
-        conn.execute("DELETE FROM JUGADORPENA WHERE Idjugador = ? AND Idpena = ?", (jugador_id, session['Idpena']))
-        db_logger.info(f"Jugador ID {jugador_id} eliminado de la tabla JUGADORPENA (Peña ID: {session['Idpena']}).")
+        conn = get_db_connection()
+        cursor = conn.cursor()
 
-        conn.execute("DELETE FROM JUGADOR WHERE Idjugador = ?", (jugador_id,))
-        db_logger.info(f"Jugador ID {jugador_id} eliminado de la tabla JUGADOR.")
+        # Eliminar de JUGADORPENA
+        cursor.execute(
+            "DELETE FROM JUGADORPENA WHERE Idjugador = %s AND Idpena = %s",
+            (jugador_id, session['Idpena'])
+        )
+        db_logger.info(f"Jugador ID {jugador_id} eliminado de JUGADORPENA (Peña ID: {session['Idpena']}).")
+
+        # Eliminar de JUGADOR
+        cursor.execute(
+            "DELETE FROM JUGADOR WHERE Idjugador = %s",
+            (jugador_id,)
+        )
+        db_logger.info(f"Jugador ID {jugador_id} eliminado de JUGADOR.")
 
         conn.commit()
+        cursor.close()
+        conn.close()
+
         flash('Jugador eliminado correctamente.')
         logger.info(f"Jugador ID {jugador_id} eliminado exitosamente.")
-    except sqlite3.Error as e:
+
+    except psycopg2.Error as e:  # CAMBIO: psycopg2.Error
         logger.error(f"Error al eliminar el jugador ID {jugador_id}: {e}", exc_info=True)
         flash('Error al eliminar el jugador. Por favor, inténtalo de nuevo.')
-    finally:
-        conn.close()
-        logger.debug("Conexión a la base de datos cerrada.")
 
     return redirect(url_for('gestionar_jugadores'))
 
@@ -393,25 +468,30 @@ def gestionar_temporadas():
         flash('Por favor, inicia sesión como administrador.')
         return redirect(url_for('login'))
 
-    conn = get_db_connection()
-
+    temporadas = []
     try:
-        # Obtener todas las temporadas asociadas a la peña del administrador
-        temporadas = conn.execute("""
+        conn = get_db_connection()
+        cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+
+        cursor.execute("""
             SELECT * FROM TEMPORADA
-            WHERE Idpena = ?
+            WHERE Idpena = %s
             ORDER BY Idt DESC
-        """, (session['Idpena'],)).fetchall()
-        logger.info(f"Se recuperaron {len(temporadas)} temporadas para la Peña ID {session['Idpena']}.")
-    except sqlite3.Error as e:
+        """, (session['Idpena'],))
+        temporadas = cursor.fetchall()
+
+        logger.info(f"Se recuperaron {len(temporadas)} temporadas para Peña ID {session['Idpena']}.")
+
+        cursor.close()
+        conn.close()
+
+    except psycopg2.Error as e:
         logger.error(f"Error al recuperar temporadas para Peña ID {session['Idpena']}: {e}", exc_info=True)
         flash('Error al recuperar las temporadas. Por favor, inténtalo de nuevo.')
         return redirect(url_for('admin_dashboard'))
-    finally:
-        conn.close()
-        logger.debug("Conexión a la base de datos cerrada.")
 
     return render_template('gestionar_temporadas.html', temporadas=temporadas)
+
 
 @app.route('/admin/gestionar_temporadas/añadir', methods=['GET', 'POST'])
 def añadir_temporada():
@@ -423,35 +503,35 @@ def añadir_temporada():
         fechaini = request.form['fechaini']
         fechafin = request.form['fechafin']
 
-        try:
-            # Convertir fechas del formato DD/MM/YYYY al formato ISO (YYYY-MM-DD)
-            print(fechaini)
-            fecha_ini_iso = fechaini
-            fecha_fin_iso = fechafin
-
-            # Validar que la fecha de inicio sea anterior a la fecha de fin
-            if fecha_ini_iso >= fecha_fin_iso:
-                flash('La fecha de inicio debe ser anterior a la fecha de fin.')
-                return redirect(url_for('añadir_temporada'))
-        except ValueError:
-            flash('Fecha inválida. Por favor, introduce fechas válidas en formato DD/MM/YYYY.')
+        # Validaciones de fechas simples
+        if fechaini >= fechafin:
+            flash('La fecha de inicio debe ser anterior a la fecha de fin.')
             return redirect(url_for('añadir_temporada'))
 
-        conn = get_db_connection()
-        cursor = conn.cursor()
+        try:
+            conn = get_db_connection()
+            cursor = conn.cursor()
 
-        # Insertar nueva temporada asociada a la peña
-        cursor.execute("""
-            INSERT INTO TEMPORADA (Idpena, Fechaini, Fechafin)
-            VALUES (?, ?, ?)
-        """, (session['Idpena'], fecha_ini_iso, fecha_fin_iso))
-        conn.commit()
-        conn.close()
+            # Insertar nueva temporada en TEMPORADA
+            cursor.execute("""
+                INSERT INTO TEMPORADA (Idpena, Fechaini, Fechafin)
+                VALUES (%s, %s, %s)
+            """, (session['Idpena'], fechaini, fechafin))
 
-        flash('Temporada añadida exitosamente.')
-        return redirect(url_for('gestionar_temporadas'))
+            conn.commit()
+            cursor.close()
+            conn.close()
+
+            flash('Temporada añadida exitosamente.')
+            return redirect(url_for('gestionar_temporadas'))
+
+        except psycopg2.Error as e:
+            logger.error(f"Error al añadir temporada: {e}", exc_info=True)
+            flash('Error al añadir la temporada. Por favor, inténtalo de nuevo.')
+            return redirect(url_for('añadir_temporada'))
 
     return render_template('añadir_temporada.html')
+
 
 @app.route('/admin/gestionar_temporadas/eliminar/<int:id_temporada>', methods=['POST'])
 def eliminar_temporada(id_temporada):
@@ -459,17 +539,27 @@ def eliminar_temporada(id_temporada):
         flash('Por favor, inicia sesión como administrador.')
         return redirect(url_for('login'))
 
-    conn = get_db_connection()
-    # Verificar y eliminar la temporada
-    conn.execute("""
-        DELETE FROM TEMPORADA
-        WHERE Idt = ? AND Idpena = ?
-    """, (id_temporada, session['Idpena']))
-    conn.commit()
-    conn.close()
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
 
-    flash('Temporada eliminada correctamente.')
-    return redirect(url_for('gestionar_temporadas'))
+        # Eliminar la temporada
+        cursor.execute("""
+            DELETE FROM TEMPORADA
+            WHERE Idt = %s AND Idpena = %s
+        """, (id_temporada, session['Idpena']))
+
+        conn.commit()
+        cursor.close()
+        conn.close()
+
+        flash('Temporada eliminada correctamente.')
+        return redirect(url_for('gestionar_temporadas'))
+
+    except psycopg2.Error as e:
+        logger.error(f"Error al eliminar temporada {id_temporada}: {e}", exc_info=True)
+        flash('Error al eliminar la temporada.')
+        return redirect(url_for('gestionar_temporadas'))
 
 
 @app.route('/admin/visualizar_temporada/<int:id_temporada>', methods=['GET', 'POST'])
@@ -479,40 +569,45 @@ def visualizar_temporada(id_temporada):
         return redirect(url_for('login'))
 
     conn = get_db_connection()
+    cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
 
-    # Obtener la información básica de la temporada
-    temporada = conn.execute("""
+    # Obtener info de la temporada
+    cursor.execute("""
         SELECT Idt, Fechaini, Fechafin
         FROM TEMPORADA
-        WHERE Idt = ? AND Idpena = ?
-    """, (id_temporada, session['Idpena'])).fetchone()
+        WHERE Idt = %s AND Idpena = %s
+    """, (id_temporada, session['Idpena']))
+    temporada = cursor.fetchone()
 
     if not temporada:
+        cursor.close()
+        conn.close()
         flash('Temporada no encontrada.')
         return redirect(url_for('gestionar_temporadas'))
 
     if request.method == 'POST':
         jugador_id = request.form.get('jugador_id')
-
-        # Validar si el jugador ya está en la temporada
-        existe = conn.execute("""
-            SELECT 1 FROM JUGADORTEMPORADA
-            WHERE Idjugador = ? AND Idpena = ? AND Idt = ?
-        """, (jugador_id, session['Idpena'], id_temporada)).fetchone()
-
-        if existe:
-            flash('El jugador ya está asociado a esta temporada.')
-        else:
-            # Añadir jugador a la temporada
-            conn.execute("""
-                INSERT INTO JUGADORTEMPORADA (Idjugador, Idpena, Idt)
-                VALUES (?, ?, ?)
+        if jugador_id:
+            # Ver si el jugador ya está en la temporada
+            cursor.execute("""
+                SELECT 1 FROM JUGADORTEMPORADA
+                WHERE Idjugador = %s AND Idpena = %s AND Idt = %s
             """, (jugador_id, session['Idpena'], id_temporada))
-            conn.commit()
-            flash('Jugador añadido a la temporada con éxito.')
+            existe = cursor.fetchone()
+
+            if existe:
+                flash('El jugador ya está asociado a esta temporada.')
+            else:
+                # Insertar jugador en la temporada
+                cursor.execute("""
+                    INSERT INTO JUGADORTEMPORADA (Idjugador, Idpena, Idt)
+                    VALUES (%s, %s, %s)
+                """, (jugador_id, session['Idpena'], id_temporada))
+                conn.commit()
+                flash('Jugador añadido a la temporada con éxito.')
 
     # Clasificación de jugadores
-    jugadores = conn.execute("""
+    cursor.execute("""
         SELECT
             J.Idjugador,
             JP.Mote,
@@ -524,14 +619,15 @@ def visualizar_temporada(id_temporada):
         FROM JUGADORTEMPORADA JT
         JOIN JUGADORPENA JP ON JT.Idjugador = JP.Idjugador AND JT.Idpena = JP.Idpena
         JOIN JUGADOR J ON JP.Idjugador = J.Idjugador
-        WHERE JT.Idt = ? AND JT.Idpena = ?
+        WHERE JT.Idt = %s AND JT.Idpena = %s
         ORDER BY Puntos DESC, Porcentaje_victorias DESC
-    """, (id_temporada, session['Idpena'])).fetchall()
+    """, (id_temporada, session['Idpena']))
+    jugadores = [dict(row) for row in cursor.fetchall()]
 
-    # Lista de partidos con resultados
-    partidos = conn.execute("""
-        SELECT 
-            P.Idp, 
+    # Lista de partidos con resultados (ejemplo)
+    cursor.execute("""
+        SELECT
+            P.Idp,
             COALESCE(SUM(EJ1.Goles), 0) AS Goles_Equipo1,
             COALESCE(SUM(EJ2.Goles), 0) AS Goles_Equipo2
         FROM PARTIDO P
@@ -539,14 +635,15 @@ def visualizar_temporada(id_temporada):
         LEFT JOIN EQUIPO E2 ON P.Idp = E2.Idp AND E2.Ide = 2
         LEFT JOIN EJUGADOR EJ1 ON EJ1.Idp = E1.Idp AND EJ1.Ide = E1.Ide
         LEFT JOIN EJUGADOR EJ2 ON EJ2.Idp = E2.Idp AND EJ2.Ide = E2.Ide
-        WHERE P.Idt = ? AND P.Idpena = ?
+        WHERE P.Idt = %s AND P.Idpena = %s
         GROUP BY P.Idp
         ORDER BY P.Idp ASC
-    """, (id_temporada, session['Idpena'])).fetchall()
+    """, (id_temporada, session['Idpena']))
+    partidos = cursor.fetchall()
 
     # Estadísticas avanzadas de jugadores
-    estadisticas_jugadores = conn.execute("""
-        SELECT 
+    cursor.execute("""
+        SELECT
             JP.Idjugador,
             JP.Mote,
             COALESCE(SUM(EJ.Goles), 0) AS Total_Goles,
@@ -556,42 +653,38 @@ def visualizar_temporada(id_temporada):
         LEFT JOIN EJUGADOR EJ ON JP.Idjugador = EJ.Idjugador
         LEFT JOIN EQUIPO E ON EJ.Ide = E.Ide
         LEFT JOIN PARTIDO P ON E.Idp = P.Idp AND JP.Idpena = P.Idpena
-        WHERE P.Idt = ? AND JP.Idpena = ?
+        WHERE P.Idt = %s AND JP.Idpena = %s
         GROUP BY JP.Idjugador, JP.Mote
         ORDER BY JP.Mote
-    """, (id_temporada, session['Idpena'])).fetchall()
+    """, (id_temporada, session['Idpena']))
+    estadisticas_jugadores = [dict(row) for row in cursor.fetchall()]
 
-    # Convertir las filas en diccionarios para manipulación
-    jugadores = [dict(row) for row in jugadores]
-    estadisticas_jugadores = [dict(row) for row in estadisticas_jugadores]
-
-    # Agregar estadísticas avanzadas a los jugadores
-    for jugador in jugadores:
-        estadisticas = next(
-            (e for e in estadisticas_jugadores if e['Idjugador'] == jugador['Idjugador']),
-            None
-        )
-        if estadisticas:
-            jugador['Goles'] = estadisticas['Total_Goles']
-            jugador['Asistencias'] = estadisticas['Total_Asistencias']
-            jugador['Valoracion'] = estadisticas['Valoracion_Promedio']
+    # Mezclar estadísticas avanzadas en la lista `jugadores`
+    for jug in jugadores:
+        e = next((x for x in estadisticas_jugadores if x['Idjugador'] == jug['Idjugador']), None)
+        if e:
+            jug['Goles'] = e['Total_Goles']
+            jug['Asistencias'] = e['Total_Asistencias']
+            jug['Valoracion'] = e['Valoracion_Promedio']
         else:
-            jugador['Goles'] = 0
-            jugador['Asistencias'] = 0
-            jugador['Valoracion'] = "N/A"
+            jug['Goles'] = 0
+            jug['Asistencias'] = 0
+            jug['Valoracion'] = "N/A"
 
-    # Jugadores disponibles para añadir a la temporada
-    jugadores_disponibles = conn.execute("""
+    # Jugadores disponibles para añadir
+    cursor.execute("""
         SELECT JP.Idjugador, JP.Mote
         FROM JUGADORPENA JP
-        WHERE JP.Idpena = ?
+        WHERE JP.Idpena = %s
         AND JP.Idjugador NOT IN (
             SELECT Idjugador
             FROM JUGADORTEMPORADA
-            WHERE Idt = ? AND Idpena = ?
+            WHERE Idt = %s AND Idpena = %s
         )
-    """, (session['Idpena'], id_temporada, session['Idpena'])).fetchall()
+    """, (session['Idpena'], id_temporada, session['Idpena']))
+    jugadores_disponibles = cursor.fetchall()
 
+    cursor.close()
     conn.close()
 
     return render_template(
@@ -604,7 +697,6 @@ def visualizar_temporada(id_temporada):
     )
 
 
-
 @app.route('/admin/draft_partido/<int:id_temporada>', methods=['GET', 'POST'])
 def draft_partido(id_temporada):
     if 'Idpena' not in session:
@@ -612,130 +704,137 @@ def draft_partido(id_temporada):
         return redirect(url_for('login'))
 
     conn = get_db_connection()
+    cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
 
     # Validar que la temporada exista
-    temporada = conn.execute("""
+    cursor.execute("""
         SELECT Idt, Fechaini, Fechafin
         FROM TEMPORADA
-        WHERE Idt = ? AND Idpena = ?
-    """, (id_temporada, session['Idpena'])).fetchone()
+        WHERE Idt = %s AND Idpena = %s
+    """, (id_temporada, session['Idpena']))
+    temporada = cursor.fetchone()
 
     if not temporada:
+        cursor.close()
+        conn.close()
         flash('Temporada no encontrada.')
         return redirect(url_for('gestionar_temporadas'))
 
     if request.method == 'POST':
         if 'convocar' in request.form:
-            # Lista de convocados seleccionados
+            # Jugadores seleccionados
             convocados = request.form.getlist('convocados')
             session['convocados'] = convocados
-            print(convocados)
             flash(f'{len(convocados)} jugadores convocados.')
+            cursor.close()
+            conn.close()
             return redirect(url_for('draft_partido', id_temporada=id_temporada))
 
-        elif 'crear_partido' in request.form:  # Aseguramos que esta acción es reconocida
-            # Obtener jugadores asignados a cada equipo
+        elif 'crear_partido' in request.form:
+            # Obtener jugadores de cada equipo
             jugadores_equipo_1 = request.form.getlist('equipo_1')
             jugadores_equipo_2 = request.form.getlist('equipo_2')
-            print(jugadores_equipo_1)
-            print(jugadores_equipo_2)
-            # Validaciones de equipos (ya existentes en tu código)
+
+            # Validaciones...
             jugadores_repetidos = set(jugadores_equipo_1).intersection(set(jugadores_equipo_2))
             if jugadores_repetidos:
-                flash(f"Los siguientes jugadores están en ambos equipos: {', '.join(jugadores_repetidos)}. Corrige esto antes de continuar.")
+                flash(f"Estos jugadores están en ambos equipos: {', '.join(jugadores_repetidos)}.")
+                cursor.close()
+                conn.close()
                 return redirect(url_for('draft_partido', id_temporada=id_temporada))
 
             if len(jugadores_equipo_1) < 1 or len(jugadores_equipo_2) < 1:
                 flash("Cada equipo debe tener al menos un jugador.")
+                cursor.close()
+                conn.close()
                 return redirect(url_for('draft_partido', id_temporada=id_temporada))
 
             if len(jugadores_equipo_1) != len(jugadores_equipo_2):
                 flash("Ambos equipos deben tener el mismo número de jugadores.")
+                cursor.close()
+                conn.close()
                 return redirect(url_for('draft_partido', id_temporada=id_temporada))
 
-            # Crear el partido
-            cursor = conn.cursor()
+            # Crear partido, recuperando su Idp
             cursor.execute("""
                 INSERT INTO PARTIDO (Idpena, Idt)
-                VALUES (?, ?)
+                VALUES (%s, %s)
+                RETURNING Idp
             """, (session['Idpena'], id_temporada))
-            id_partido = cursor.lastrowid
+            id_partido = cursor.fetchone()[0]
 
-                    # Crear equipos para el partido
+            # Crear dos equipos para el partido
+            # Asumimos Ide=1 y Ide=2 para equipo 1 y 2 (si tu lógica lo requiere de otra manera, ajusta)
             cursor.execute("""
-                INSERT INTO EQUIPO (Idp, Idpena, Idt)
-                VALUES (?, ?, ?)
+                INSERT INTO EQUIPO (Ide, Idp, Idpena, Idt)
+                VALUES (1, %s, %s, %s)
             """, (id_partido, session['Idpena'], id_temporada))
 
             cursor.execute("""
-                INSERT INTO EQUIPO (Idp, Idpena, Idt)
-                VALUES (?, ?, ?)
+                INSERT INTO EQUIPO (Ide, Idp, Idpena, Idt)
+                VALUES (2, %s, %s, %s)
             """, (id_partido, session['Idpena'], id_temporada))
 
-                        # Inicializar los totales de goles para cada equipo
             total_goles_equipo_1 = 0
             total_goles_equipo_2 = 0
 
-            # Asignar estadísticas a jugadores del equipo 1
+            # Equipo 1 stats
             for jugador_id in jugadores_equipo_1:
                 goles = int(request.form.get(f'goles_{jugador_id}_equipo-1', 0))
-                asistencias = request.form.get(f'asistencias_{jugador_id}_equipo-1', 0)
-                valoracion = request.form.get(f'valoracion_{jugador_id}_equipo-1', 5)
-                
-                # Sumar los goles al total del equipo 1
+                asistencias = int(request.form.get(f'asistencias_{jugador_id}_equipo-1', 0))
+                valoracion = float(request.form.get(f'valoracion_{jugador_id}_equipo-1', 5))
+
                 total_goles_equipo_1 += goles
-                
-                # Insertar las estadísticas en la base de datos
+
                 cursor.execute("""
                     INSERT INTO EJUGADOR (Ide, Idp, Idjugador, Goles, Asistencias, Val)
-                    VALUES (1, ?, ?, ?, ?, ?)
+                    VALUES (1, %s, %s, %s, %s, %s)
                 """, (id_partido, jugador_id, goles, asistencias, valoracion))
 
-            # Asignar estadísticas a jugadores del equipo 2
+            # Equipo 2 stats
             for jugador_id in jugadores_equipo_2:
                 goles = int(request.form.get(f'goles_{jugador_id}_equipo-2', 0))
-                asistencias = request.form.get(f'asistencias_{jugador_id}_equipo-2', 0)
-                valoracion = request.form.get(f'valoracion_{jugador_id}_equipo-2', 5)
-                
-                # Sumar los goles al total del equipo 2
+                asistencias = int(request.form.get(f'asistencias_{jugador_id}_equipo-2', 0))
+                valoracion = float(request.form.get(f'valoracion_{jugador_id}_equipo-2', 5))
+
                 total_goles_equipo_2 += goles
-                
-                # Insertar las estadísticas en la base de datos
+
                 cursor.execute("""
                     INSERT INTO EJUGADOR (Ide, Idp, Idjugador, Goles, Asistencias, Val)
-                    VALUES (2, ?, ?, ?, ?, ?)
+                    VALUES (2, %s, %s, %s, %s, %s)
                 """, (id_partido, jugador_id, goles, asistencias, valoracion))
-                
-              # Determinar el resultado del partido
-            resultado_equipo_1 = 0  # 1 = victoria, 0 = empate, -1 = derrota
+
+            # Determinar resultado
+            resultado_equipo_1 = 0
             resultado_equipo_2 = 0
 
             if total_goles_equipo_1 > total_goles_equipo_2:
-                resultado_equipo_1 = 1
-                resultado_equipo_2 = -1
+                resultado_equipo_1 = 1  # victoria
+                resultado_equipo_2 = -1 # derrota
             elif total_goles_equipo_1 < total_goles_equipo_2:
                 resultado_equipo_1 = -1
                 resultado_equipo_2 = 1
 
-            # Actualizar JUGADORTEMPORADA para cada jugador
+            # Actualizar JUGADORTEMPORADA
             for jugador_id in jugadores_equipo_1:
                 if resultado_equipo_1 == 1:
                     cursor.execute("""
                         UPDATE JUGADORTEMPORADA
                         SET VICT = VICT + 1
-                        WHERE Idjugador = ? AND Idpena = ? AND Idt = ?
+                        WHERE Idjugador = %s AND Idpena = %s AND Idt = %s
                     """, (jugador_id, session['Idpena'], id_temporada))
                 elif resultado_equipo_1 == -1:
                     cursor.execute("""
                         UPDATE JUGADORTEMPORADA
                         SET DERR = DERR + 1
-                        WHERE Idjugador = ? AND Idpena = ? AND Idt = ?
+                        WHERE Idjugador = %s AND Idpena = %s AND Idt = %s
                     """, (jugador_id, session['Idpena'], id_temporada))
                 else:
+                    # empate
                     cursor.execute("""
                         UPDATE JUGADORTEMPORADA
                         SET EMP = EMP + 1
-                        WHERE Idjugador = ? AND Idpena = ? AND Idt = ?
+                        WHERE Idjugador = %s AND Idpena = %s AND Idt = %s
                     """, (jugador_id, session['Idpena'], id_temporada))
 
             for jugador_id in jugadores_equipo_2:
@@ -743,41 +842,49 @@ def draft_partido(id_temporada):
                     cursor.execute("""
                         UPDATE JUGADORTEMPORADA
                         SET VICT = VICT + 1
-                        WHERE Idjugador = ? AND Idpena = ? AND Idt = ?
+                        WHERE Idjugador = %s AND Idpena = %s AND Idt = %s
                     """, (jugador_id, session['Idpena'], id_temporada))
                 elif resultado_equipo_2 == -1:
                     cursor.execute("""
                         UPDATE JUGADORTEMPORADA
                         SET DERR = DERR + 1
-                        WHERE Idjugador = ? AND Idpena = ? AND Idt = ?
+                        WHERE Idjugador = %s AND Idpena = %s AND Idt = %s
                     """, (jugador_id, session['Idpena'], id_temporada))
                 else:
                     cursor.execute("""
                         UPDATE JUGADORTEMPORADA
                         SET EMP = EMP + 1
-                        WHERE Idjugador = ? AND Idpena = ? AND Idt = ?
+                        WHERE Idjugador = %s AND Idpena = %s AND Idt = %s
                     """, (jugador_id, session['Idpena'], id_temporada))
-                    
 
             conn.commit()
+            cursor.close()
+            conn.close()
+
             session.pop('convocados', None)
             flash('Partido creado y jugadores asignados con éxito.')
             return redirect(url_for('visualizar_temporada', id_temporada=id_temporada))
 
-    # Obtener jugadores disponibles para asignar a equipos
-    jugadores_disponibles = conn.execute("""
+    # GET: mostrar jugadores disponibles
+    cursor.execute("""
         SELECT JT.Idjugador, JP.Mote, JP.Posicion
         FROM JUGADORTEMPORADA JT
         JOIN JUGADORPENA JP ON JT.Idjugador = JP.Idjugador AND JT.Idpena = JP.Idpena
-        WHERE JT.Idpena = ? AND JT.Idt = ?
-    """, (session['Idpena'], id_temporada)).fetchall()
+        WHERE JT.Idpena = %s AND JT.Idt = %s
+    """, (session['Idpena'], id_temporada))
+    jugadores_disponibles = cursor.fetchall()
 
     convocados = session.get('convocados', [])
-    jugadores_convocados = [j for j in jugadores_disponibles if str(j['Idjugador']) in convocados]
+    jugadores_convocados = [j for j in jugadores_disponibles if str(j['idjugador']) in convocados]
 
+    cursor.close()
     conn.close()
 
-    return render_template('draft_partido.html', temporada=temporada, jugadores_disponibles=jugadores_disponibles, jugadores_convocados=jugadores_convocados)
+    return render_template('draft_partido.html',
+                           temporada=temporada,
+                           jugadores_disponibles=jugadores_disponibles,
+                           jugadores_convocados=jugadores_convocados)
+
 
 @app.route('/admin/ver_estadisticas_partido/<int:id_partido>', methods=['GET'])
 def ver_estadisticas_partido(id_partido):
@@ -786,21 +893,25 @@ def ver_estadisticas_partido(id_partido):
         return redirect(url_for('login'))
 
     conn = get_db_connection()
+    cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
 
-    # Obtener información básica del partido
-    partido = conn.execute("""
+    # Info del partido
+    cursor.execute("""
         SELECT Idp, Idpena, Idt
         FROM PARTIDO
-        WHERE Idp = ? AND Idpena = ?
-    """, (id_partido, session['Idpena'])).fetchone()
+        WHERE Idp = %s AND Idpena = %s
+    """, (id_partido, session['Idpena']))
+    partido = cursor.fetchone()
 
     if not partido:
+        cursor.close()
+        conn.close()
         flash('Partido no encontrado.')
         return redirect(url_for('gestionar_partidos'))
 
-        # Obtener estadísticas de los jugadores
-    estadisticas = conn.execute("""
-        SELECT 
+    # Estadísticas jugadores
+    cursor.execute("""
+        SELECT
             E.Ide AS Equipo,
             JP.Mote AS Jugador,
             EJ.Goles,
@@ -809,27 +920,21 @@ def ver_estadisticas_partido(id_partido):
         FROM EJUGADOR EJ
         JOIN EQUIPO E ON EJ.Ide = E.Ide
         JOIN JUGADORPENA JP ON EJ.Idjugador = JP.Idjugador AND JP.Idpena = E.Idpena
-        WHERE EJ.Idp = ?
+        WHERE EJ.Idp = %s
         ORDER BY E.Ide, JP.Mote
-    """, (id_partido,)).fetchall()
+    """, (id_partido,))
+    estadisticas = cursor.fetchall()
 
+    cursor.close()
     conn.close()
 
-    return render_template('ver_estadisticas_partido.html', partido=partido, estadisticas=estadisticas)
+    return render_template('ver_estadisticas_partido.html',
+                           partido=partido,
+                           estadisticas=estadisticas)
 
 
 
-app.route('/test_db')
-def test_db():
-    try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        cursor.execute("SELECT 1")
-        return "✅ Base de datos conectada correctamente", 200
-    except Exception as e:
-        return f"❌ Error al conectar con la base de datos: {e}", 500
-    
-# Manejo de errores personalizados
+# Manejo de errores
 @app.errorhandler(404)
 def not_found(error):
     logger.warning(f"Error 404: Ruta no encontrada. {request.path}")
@@ -842,6 +947,3 @@ def internal_error(error):
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
-
-
-    
