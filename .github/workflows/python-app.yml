@@ -1,13 +1,13 @@
-# This workflow will install Python dependencies, run tests and lint with a single version of Python
+# This workflow will install Python dependencies, run tests, and lint with multiple versions of Python
 # For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-python
 
 name: Python application
 
 on:
   push:
-    branches: [ "dev","main" ]  # Cambiado a "dev" para ejecutarse en la rama dev
+    branches: [ "dev", "main" ]  # Cambiado a "dev" para ejecutarse en la rama dev
   pull_request:
-    branches: [ "main","dev" ]
+    branches: [ "main", "dev" ]
 
 permissions:
   contents: read
@@ -16,6 +16,21 @@ jobs:
   build:
 
     runs-on: ${{ matrix.os }}
+
+    services:
+      postgres:
+        image: postgres:13
+        env:
+          POSTGRES_USER: testuser
+          POSTGRES_PASSWORD: testpass
+          POSTGRES_DB: testdb
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U testuser -d testdb"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=3
 
     strategy:
       matrix:
@@ -33,9 +48,34 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install flake8 pytest
+          pip install flake8 pytest psycopg2-binary
           pip install -r requirements.txt
+
+      - name: Wait for PostgreSQL to be ready
+        run: |
+          for i in {1..10}; do
+            pg_isready -h localhost -p 5432 -U testuser && break
+            echo "PostgreSQL no está listo, esperando..."
+            sleep 2
+          done
       
+      - name: Initialize database schema
+        env:
+          DATABASE_URL: postgresql://testuser:testpass@localhost:5432/testdb
+        run: |
+          python -c "
+          import os
+          import psycopg2
+          db_url = os.getenv('DATABASE_URL')
+          conn = psycopg2.connect(db_url)
+          with open('scripts/schema.sql', 'r') as f:
+              schema = f.read()
+          with conn.cursor() as cur:
+              cur.execute(schema)
+          conn.commit()
+          conn.close()
+          "
+
       - name: Lint with flake8
         run: |
           # Detiene el build si hay errores de sintaxis en Python o nombres no definidos
@@ -44,6 +84,7 @@ jobs:
           flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
       
       - name: Test with pytest
+        env:
+          DATABASE_URL: postgresql://testuser:testpass@localhost:5432/testdb
         run: |
           pytest
-  
