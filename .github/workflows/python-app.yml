@@ -51,7 +51,7 @@ jobs:
         env:
           DATABASE_URL: postgresql://user:password@localhost:5432/gestion_penas
         run: |
-          python init_db.py
+          python /init_db/init_db.py
 
       # Opcional: Verificar que las tablas se crearon
       - name: Verify database schema
