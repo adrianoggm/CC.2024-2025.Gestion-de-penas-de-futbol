@@ -26,7 +26,8 @@ services:
       - ./Gestion_Penas.sql:/docker-entrypoint-initdb.d/Gestion_Penas.sql
     ports:
       - "5432:5432"
-      
+    command: bash -c "ls -la /docker-entrypoint-initdb.d/ && cat /docker-entrypoint-initdb.d/Gestion_Penas.sql && docker-entrypoint.sh postgres"
+
   logs:
     image: alpine
     container_name: logs-container
