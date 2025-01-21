@@ -11,10 +11,12 @@ services:
       - ./logs:/app/logs
     depends_on:
       - db
+      - logs
     environment:
       # URL para conectarse a la base de datos Postgres
       DATABASE_URL: postgresql://user:password@db:5432/gestion_penas
-
+      # URL de la API del servicio de logs
+      LOGS_API_URL: http://logs-container:6000/api/logs
   db:
     image: postgres:15
     container_name: db-container
@@ -29,11 +31,22 @@ services:
     command: bash -c "ls -la /docker-entrypoint-initdb.d/ && cat /docker-entrypoint-initdb.d/Gestion_Penas.sql && docker-entrypoint.sh postgres"
 
   logs:
-    image: alpine
+    build:
+      context: ./logs_service
+      dockerfile: Dockerfile
     container_name: logs-container
+    ports:
+      - "6000:6000"
     volumes:
-      - ./logs:/app/logs
-    command: tail -f /dev/null
+      - ./logs:/logs
+    environment:
+      LOG_FILE_PATH: /logs/service.log
+    command: python app.py
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:6000/api/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
 volumes:
   db_data:

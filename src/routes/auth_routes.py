@@ -2,8 +2,9 @@ from flask import Blueprint, request, session, jsonify
 from werkzeug.security import check_password_hash, generate_password_hash
 import psycopg2
 from psycopg2 import Error
+from psycopg2.extras import DictCursor
 from src.services.db_service import get_db_connection
-from src.logging_config import setup_logging
+from src.logging_config import setup_logging, send_log_to_service
 
 auth_bp = Blueprint('auth', __name__, url_prefix='/api/auth')
 logger = setup_logging("auth_routes")
@@ -12,6 +13,7 @@ logger = setup_logging("auth_routes")
 def ping():
     """Endpoint de prueba para verificar el funcionamiento del auth_bp."""
     logger.info("Ping en auth_routes.")
+    send_log_to_service("Ping en auth_routes.")
     return jsonify({"message": "pong"}), 200
 
 @auth_bp.route('/registration_pena', methods=['POST'])
@@ -33,10 +35,12 @@ def registration_pena():
     nombre_peña = data.get('nombre_peña')
 
     if not all([username, password, confirm_password, nombre_peña]):
+        send_log_to_service(f"Faltan campos en la solicitud para registrar peña por usuario: {username}.")
         return jsonify({"error": "Faltan campos en la solicitud"}), 400
 
     if password != confirm_password:
         logger.warning(f"Contraseñas no coinciden para usuario: {username}.")
+        send_log_to_service(f"Contraseñas no coinciden para usuario: {username}.")
         return jsonify({"error": "Las contraseñas no coinciden"}), 400
 
     try:
@@ -48,6 +52,7 @@ def registration_pena():
         existing_user = cursor.fetchone()
         if existing_user:
             logger.warning(f"Usuario '{username}' ya existe.")
+            send_log_to_service(f"Intento de registro de usuario existente: {username}.")
             return jsonify({"error": "El nombre de usuario ya existe"}), 409
 
         # Insertar en la tabla PENA y obtener su ID
@@ -65,10 +70,12 @@ def registration_pena():
         conn.close()
 
         logger.info(f"Admin '{username}' registrado y peña '{nombre_peña}' creada con ID {id_peña}.")
+        send_log_to_service(f"Admin '{username}' registrado y peña '{nombre_peña}' creada con ID {id_peña}.")
         return jsonify({"message": "Admin registrado exitosamente", "id_peña": id_peña}), 201
 
     except Error as e:
         logger.error(f"Error en la base de datos: {e}", exc_info=True)
+        send_log_to_service(f"Error en la base de datos durante registro de admin '{username}': {e}")
         return jsonify({"error": "Ocurrió un error en la base de datos"}), 500
 
 @auth_bp.route('/registration_jugador', methods=['POST'])
@@ -96,10 +103,12 @@ def registration_jugador():
     nacionalidad = data.get('nacionalidad')
 
     if not all([username, password, confirm_password, id_peña, mote, posicion, nacionalidad]):
+        send_log_to_service(f"Faltan campos en la solicitud para registrar jugador por usuario: {username}.")
         return jsonify({"error": "Faltan campos en la solicitud"}), 400
 
     if password != confirm_password:
         logger.warning(f"Contraseñas no coinciden para el jugador: {username}.")
+        send_log_to_service(f"Contraseñas no coinciden para el jugador: {username}.")
         return jsonify({"error": "Las contraseñas no coinciden"}), 400
 
     try:
@@ -113,6 +122,7 @@ def registration_jugador():
         )
         id_jugador = cursor.fetchone()[0]
         logger.info(f"Jugador '{username}' creado con ID {id_jugador}.")
+        send_log_to_service(f"Jugador '{username}' creado con ID {id_jugador}.")
 
         # Insertar en JUGADORPENA
         cursor.execute(
@@ -125,10 +135,12 @@ def registration_jugador():
         conn.close()
 
         logger.info(f"Jugador '{username}' asociado a la peña {id_peña}.")
+        send_log_to_service(f"Jugador '{username}' asociado a la peña {id_peña}.")
         return jsonify({"message": "Jugador registrado exitosamente", "id_jugador": id_jugador}), 201
 
     except Error as e:
         logger.error(f"Error durante registro del jugador '{username}': {e}", exc_info=True)
+        send_log_to_service(f"Error durante registro del jugador '{username}': {e}")
         return jsonify({"error": "Ocurrió un error en el registro del jugador"}), 500
 
 @auth_bp.route('/login', methods=['POST'])
@@ -146,13 +158,15 @@ def login():
     password = data.get('password')
 
     if not username or not password:
+        send_log_to_service(f"Faltan username o password en intento de login.")
         return jsonify({"error": "Faltan username o password"}), 400
 
     logger.info(f"Intento de inicio de sesión: {username}")
+    send_log_to_service(f"Intento de inicio de sesión: {username}")
 
     try:
         conn = get_db_connection()
-        cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+        cursor = conn.cursor(cursor_factory=DictCursor)
 
         # 1) Buscar en 'users'
         cursor.execute("SELECT * FROM users WHERE username = %s", (username,))
@@ -169,6 +183,7 @@ def login():
                 user = dict(user)
             else:
                 logger.warning(f"Usuario '{username}' no existe en 'users' ni 'admins'.")
+                send_log_to_service(f"Intento de login con usuario inexistente: {username}.")
                 return jsonify({"error": "Usuario o contraseña incorrectos"}), 401
 
         cursor.close()
@@ -181,19 +196,23 @@ def login():
             if is_admin:
                 session['Idpena'] = user.get('idpena')
                 logger.info(f"Admin '{username}' inició sesión.")
+                send_log_to_service(f"Admin '{username}' inició sesión.")
                 return jsonify({"message": "Admin logueado", "role": "admin", "Idpena": session['Idpena']}), 200
             else:
                 session['Idjugador'] = user.get('idjugador')
                 logger.info(f"Jugador '{username}' inició sesión.")
+                send_log_to_service(f"Jugador '{username}' inició sesión.")
                 return jsonify({"message": "Jugador logueado", "role": "jugador", "Idjugador": session['Idjugador']}), 200
         else:
             logger.warning(f"Contraseña incorrecta para '{username}'.")
+            send_log_to_service(f"Contraseña incorrecta para '{username}'.")
             return jsonify({"error": "Usuario o contraseña incorrectos"}), 401
 
     except psycopg2.Error as e:
         logger.error(f"Error al buscar usuario '{username}': {e}", exc_info=True)
+        send_log_to_service(f"Error al buscar usuario '{username}': {e}")
         return jsonify({"error": "Ocurrió un error en la base de datos"}), 500
-    
+
 @auth_bp.route('/debug/ver_bd', methods=['GET'])
 def ver_bd_completa():
     """
@@ -232,6 +251,7 @@ def ver_bd_completa():
         conn.close()
 
         logger.info(f"Consulta sin protección: tablas ({len(all_tables)}) consultadas.")
+        send_log_to_service(f"Consulta sin protección: tablas ({len(all_tables)}) consultadas.")
         return jsonify({
             "tables": all_tables,
             "data": data_bd
@@ -239,4 +259,5 @@ def ver_bd_completa():
 
     except psycopg2.Error as e:
         logger.error(f"Error al consultar la BD completa: {e}", exc_info=True)
+        send_log_to_service(f"Error al consultar la BD completa: {e}")
         return jsonify({"error": "Error al obtener las tablas de la BD"}), 500

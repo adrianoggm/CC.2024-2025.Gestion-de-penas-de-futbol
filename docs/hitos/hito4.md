@@ -23,6 +23,7 @@ Para garantizar la **independencia**, **flexibilidad** y **escalabilidad** de la
 
 Gracias a esta arquitectura, cada servicio es fácilmente escalable e intercambiable, permitiendo que el proyecto evolucione sin modificar todo el sistema en bloque.
 
+En la primera versión de este hito residian 2 fallos que fueron no fuero identificables hata el hito 5. Debido a el uso de la base de datos local resulta que no se actualizxaba correctamente la variable de entorno por lo que se subia con los test. Lo que hacía que ha simple vista la aplicación estuviese funcionando y bien configurada. Por otro lado el uso de las librería sqlite debió seer cambiada ya que no hay retrocompatibilidad una vez bien configurada en el servidor de postgresql por lo que para este hito solo pudimos probar la parte del back-end ya que lamentablementwe el front-end quedó inutilizado porque la configuración del formato cambiaba demasiado y había muchos errores.
 ---
 
 ## 📋 2. Configuración de los Contenedores y Justificación
