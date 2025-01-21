@@ -2,16 +2,12 @@ name: Python application with PostgreSQL
 
 on:
   push:
-    branches: [ "dev", "main" ]
+    branches: ["dev", "main"]
   pull_request:
-    branches: [ "main", "dev" ]
-
-permissions:
-  contents: read
+    branches: ["main", "dev"]
 
 jobs:
   build:
-
     runs-on: ubuntu-latest
 
     services:
@@ -23,21 +19,32 @@ jobs:
           POSTGRES_DB: gestion_penas
         ports:
           - 5432:5432
+        # Montar el archivo con permisos rw:
+        volumes:
+          - ${{ github.workspace }}/Gestion_Penas.sql:/docker-entrypoint-initdb.d/Gestion_Penas.sql:rw
         options: >-
           --health-cmd="pg_isready -U user -d gestion_penas"
           --health-interval=10s
           --health-timeout=5s
-          --health-retries=3
-        volumes:
-          - ${{ github.workspace }}/Gestion_Penas.sql:/docker-entrypoint-initdb.d/Gestion_Penas.sql:ro
+          --health-retries=5
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Python ${{ matrix.python-version }}
+      # PASO: Comprobamos que el archivo está en el workspace y es un archivo
+      - name: Debug presence of Gestion_Penas.sql
+        run: |
+          echo "=== Contenido de $GITHUB_WORKSPACE ==="
+          ls -l $GITHUB_WORKSPACE
+          echo "=== Tipo del archivo ==="
+          file $GITHUB_WORKSPACE/Gestion_Penas.sql || echo "Error con 'file' command"
+          echo "=== Intentamos leer primeras líneas ==="
+          head -n 10 $GITHUB_WORKSPACE/Gestion_Penas.sql || echo "No se pudo leer"
+
+      - name: Set up Python
         uses: actions/setup-python@v3
         with:
-          python-version: ${{ matrix.python-version }}
+          python-version: 3.10
       
       - name: Install dependencies
         run: |
@@ -45,7 +52,7 @@ jobs:
           pip install flake8 pytest psycopg2-binary
           pip install -r requirements.txt
 
-      - name: Wait for PostgreSQL to be ready
+      - name: Wait for PostgreSQL
         run: |
           for i in {1..10}; do
             pg_isready -h localhost -p 5432 -U user && break
@@ -53,26 +60,24 @@ jobs:
             sleep 2
           done
 
-      - name: Verify database schema
+      - name: Quick check tables
         env:
           DATABASE_URL: postgresql://user:password@localhost:5432/gestion_penas
         run: |
           python -c "
-          import os
-          import psycopg2
+          import psycopg2, os
           db_url = os.getenv('DATABASE_URL')
+          print('DB_URL:', db_url)
           conn = psycopg2.connect(db_url)
           cur = conn.cursor()
           cur.execute('SELECT tablename FROM pg_catalog.pg_tables WHERE schemaname = \'public\';')
           tables = cur.fetchall()
+          print('Tablas:', tables)
           if not tables:
-              raise Exception('No se encontraron tablas en la base de datos. Verifica Gestion_Penas.sql.')
-          print('Tablas encontradas:', tables)
-          cur.close()
-          conn.close()
+              raise SystemExit('No se encontraron tablas. ¿Se cargó Gestion_Penas.sql?')
           "
-
-      - name: Lint with flake8
+      
+      - name: Lint
         run: |
           flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
           flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
