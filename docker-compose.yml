@@ -23,11 +23,10 @@ services:
       POSTGRES_PASSWORD: password
       POSTGRES_DB: gestion_penas
     volumes:
-      - db_data:/var/lib/postgresql/data
       - ./Gestion_Penas.sql:/docker-entrypoint-initdb.d/Gestion_Penas.sql
     ports:
-      - "5432:5432"    # <-- añadir esto
-
+      - "5432:5432"
+      
   logs:
     image: alpine
     container_name: logs-container
