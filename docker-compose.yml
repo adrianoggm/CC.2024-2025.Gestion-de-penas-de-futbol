@@ -25,6 +25,8 @@ services:
     volumes:
       - db_data:/var/lib/postgresql/data
       - ./Gestion_Penas.sql:/docker-entrypoint-initdb.d/Gestion_Penas.sql
+    ports:
+      - "5432:5432"    # <-- añadir esto
 
   logs:
     image: alpine

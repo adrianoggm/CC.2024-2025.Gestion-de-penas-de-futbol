@@ -16,7 +16,6 @@
             <tr>
                 <th>ID</th>
                 <th>Nombre</th>
-                <th>Nacionalidad</th>
                 <th>Posición</th>
                 <th>Acciones</th>
             </tr>
@@ -24,15 +23,12 @@
         <tbody>
             {% for jugador in jugadores %}
             <tr>
-                <td>{{ jugador['Idjugador'] }}</td>
-                <td>{{ jugador['Mote'] }}</td>
-                <td>{{ jugador['Nacionalidad'] }}</td>
-                <td>{{ jugador['Posicion'] }}</td>
+                <td>{{ jugador['idjugador'] }}</td>
+                <td>{{ jugador['mote'] }}</td>
+                <td>{{ jugador['posicion'] }}</td>
                 <td>
-                    <a href="{{ url_for('editar_jugador', jugador_id=jugador['Idjugador']) }}" class="btn">Editar</a> |
-                    
-                    <!-- Formulario para eliminar jugador -->
-                    <form action="{{ url_for('eliminar_jugador', jugador_id=jugador['Idjugador']) }}" method="POST" style="display:inline;">
+                    <a href="{{ url_for('editar_jugador', jugador_id=jugador['idjugador']) }}" class="btn">Editar</a> |
+                    <form action="{{ url_for('eliminar_jugador', jugador_id=jugador['idjugador']) }}" method="POST" style="display:inline;">
                         <button type="submit" onclick="return confirm('¿Estás seguro de que deseas eliminar este jugador?');">Eliminar</button>
                     </form>
                 </td>
@@ -41,7 +37,6 @@
         </tbody>
     </table>
 
-    <!-- Botón Añadir Jugador -->
     <div style="margin-top: 20px;">
         <a href="{{ url_for('añadir_jugador') }}" class="btn">Añadir Jugador</a>
     </div>
