@@ -20,4 +20,4 @@ def main():
     print("¡Base de datos inicializada correctamente!")
 
 if __name__ == "__main__":
-    main(
+    main()
