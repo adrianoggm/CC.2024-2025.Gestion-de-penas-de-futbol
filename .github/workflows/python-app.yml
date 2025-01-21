@@ -1,11 +1,9 @@
-# This workflow will install Python dependencies, run tests, and lint with multiple versions of Python
-# For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-python
-
-name: Python application
+# This workflow will install Python dependencies, run tests, and lint with Python on Linux
+name: Python application with PostgreSQL
 
 on:
   push:
-    branches: [ "dev", "main" ]  # Cambiado a "dev" para ejecutarse en la rama dev
+    branches: [ "dev", "main" ]
   pull_request:
     branches: [ "main", "dev" ]
 
@@ -15,7 +13,8 @@ permissions:
 jobs:
   build:
 
-    runs-on: ${{ matrix.os }}
+    # Ejecutar en un runner Linux para soportar contenedores
+    runs-on: ubuntu-latest
 
     services:
       postgres:
@@ -34,12 +33,11 @@ jobs:
 
     strategy:
       matrix:
-        os: [ubuntu-latest, windows-latest]  # Ejecuta en Ubuntu y Windows
         python-version: ["3.9", "3.10", "3.11", "3.12"]
 
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v3
         with:
@@ -58,7 +56,7 @@ jobs:
             echo "PostgreSQL no está listo, esperando..."
             sleep 2
           done
-      
+
       - name: Initialize database schema
         env:
           DATABASE_URL: postgresql://testuser:testpass@localhost:5432/testdb
@@ -78,13 +76,10 @@ jobs:
 
       - name: Lint with flake8
         run: |
-          # Detiene el build si hay errores de sintaxis en Python o nombres no definidos
           flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
-          # Usa exit-zero para tratar todos los errores como advertencias. El editor de GitHub tiene 127 caracteres de ancho
           flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
-      
+
       - name: Test with pytest
         env:
           DATABASE_URL: postgresql://testuser:testpass@localhost:5432/testdb
-        run: |
-          pytest
+        run: pytest
