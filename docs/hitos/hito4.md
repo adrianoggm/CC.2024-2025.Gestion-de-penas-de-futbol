@@ -1,6 +1,6 @@
 # Hito 4: Composición de Servicios 🗰️
 
-### Versión 0.4
+### Versión 1.4
 
 Este documento corresponde al **Hito 4** del proyecto de **gestión de peñas y ligas individuales deportivas**. Durante este hito, se ha avanzado significativamente en la configuración, prueba y depuración de la infraestructura basada en contenedores para soportar la aplicación. Este proceso implicó ajustes iterativos para lograr una arquitectura funcional, escalable y que gestione adecuadamente los registros de logs.
 
@@ -212,7 +212,8 @@ La elección de esta configuración se basa en la estabilidad y facilidad de con
 - **Facilidad de Uso:** La interfaz web intuitiva de Graylog y Grafana facilita la búsqueda, análisis y visualización de los logs, mejorando la productividad del equipo de desarrollo y operaciones.
 
 Esta configuración garantiza una gestión de logs robusta y eficiente, superando las limitaciones encontradas con otras soluciones como la pila ELK, y proporcionando una base sólida para el monitoreo y análisis continuo de la infraestructura de contenedores.
-
+![Contenedores Grafana y Loki](/docs/images/1.png)
+![Visualización Grafana](/docs/images/3.png)
 
 
 ## 📋 3. Dockerfile del Contenedor de Aplicación
@@ -239,13 +240,11 @@ CMD ["python", "src/app.py"]
 
 
 
-## 📋 54. Fichero de Composición (`docker-compose.yaml`)
+## 📋 4. Fichero de Composición (`docker-compose.yaml`)
 
 A continuación, se presenta un ejemplo de configuración de **Docker Compose** para desplegar los contenedores necesarios: `app`, `db`, `grafana`, `loki` y `promtail`. Este archivo facilita la orquestación y gestión de múltiples servicios en un entorno de contenedores.
 
 ```yaml
-version: '3.8'
-
 services:
   app:
     build:
@@ -254,6 +253,7 @@ services:
     container_name: app-container
     ports:
       - "5000:5000"
+    user: "${UID}:${GID}"
     volumes:
       - ./src:/app/src
       - ./logs:/app/logs
@@ -265,7 +265,7 @@ services:
       DATABASE_URL: postgresql://user:password@db:5432/gestion_penas
     networks:
       - grafana_network
-
+    
   db:
     image: postgres:15
     container_name: db-container
@@ -285,7 +285,7 @@ services:
     container_name: grafana
     restart: unless-stopped
     ports:
-      - "3000:3000"
+      - '3000:3000'
     volumes:
       - grafana_data:/var/lib/grafana
     networks:
@@ -434,55 +434,417 @@ networks:
 
 ---
 
+
 ## 📋 5. Implementación y Validación del Clúster
 
-Para garantizar el correcto funcionamiento de los contenedores y su interacción, se han desarrollado pruebas automatizadas que validan tanto la disponibilidad de la aplicación Flask como la conexión con la base de datos. A continuación, se muestra un ejemplo de estas pruebas en **Python**, utilizando la librería `requests`:
+Para garantizar el correcto funcionamiento de los contenedores y su interacción, se han desarrollado pruebas automatizadas que validan tanto la disponibilidad de la aplicación Flask como la conexión con la base de datos. A continuación, se detalla cómo se ha implementado este proceso utilizando **GitHub Actions** para automatizar el despliegue de los contenedores y la ejecución de las pruebas de la API.
 
-```python
-import requests
+### **Despliegue Automatizado de Contenedores en GitHub Actions**
 
-def test_app():
-    try:
-        # Enviar una solicitud GET a la aplicación Flask
-        response = requests.get("http://localhost:5000")
-        assert response.status_code == 200, "La aplicación no está respondiendo correctamente"
-        print("✅ Test passed: La aplicación está accesible en http://localhost:5000")
-    except Exception as e:
-        print(f"❌ Test failed: {e}")
+En el flujo de trabajo de **GitHub Actions**, se ha configurado un job que se encarga de desplegar los contenedores definidos en el archivo `docker-compose.yml`. Este job realiza las siguientes acciones:
 
-def test_database():
-    try:
-        response = requests.get("http://localhost:5000/test_db")
-        assert response.status_code == 200, "La base de datos no está conectada correctamente"
-        print("✅ Test passed: Conexión a la base de datos exitosa")
-    except Exception as e:
-        print(f"❌ Test failed: {e}")
+1. **Clonar el Repositorio**:
+    ```yaml
+    - name: Clonar el repositorio
+      uses: actions/checkout@v4
+    ```
+    *Descripción*: Utiliza la acción oficial de GitHub para clonar el código fuente del repositorio.
 
-if __name__ == "__main__":
-    test_app()
-```
-### Explicación de las pruebas
+2. **Instalar Docker y Docker Compose**:
+    ```yaml
+    - name: Instalar Docker
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y ca-certificates curl gnupg lsb-release
+        curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
+        echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+        sudo apt-get update
+        sudo apt-get install -y docker-ce docker-ce-cli containerd.io
+        docker --version
 
-**1. `test_app()`**  
-   - Realiza una petición **HTTP GET** a la URL `http://localhost:5000`.  
-   - Verifica que el código de estado de la respuesta sea **200 (OK)**.  
-   - Si la verificación es exitosa, confirma que la aplicación Flask está disponible y respondiendo correctamente.  
+    - name: Instalar Docker Compose
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y docker-compose
+        docker-compose --version
+    ```
+    *Descripción*: Instala Docker y Docker Compose en el runner de GitHub Actions, asegurando que las herramientas necesarias para contenerizar y gestionar los servicios estén disponibles.
 
-**2. `test_database()`**  
-   - Envía una solicitud **HTTP GET** a la ruta `http://localhost:5000/test_db`.  
-   - La aplicación, por su parte, realiza una consulta a la base de datos para validar su conexión.  
-   - Comprueba que el estado de la respuesta sea **200**, certificando que la aplicación puede comunicarse con la base de datos de manera adecuada.  
+3. **Iniciar y Habilitar el Servicio de Docker**:
+    ```yaml
+    - name: Iniciar Servicio de Docker
+      run: |
+        sudo systemctl start docker
+        sudo systemctl enable docker
+    ```
+    *Descripción*: Inicia el servicio de Docker y lo habilita para que se inicie automáticamente en futuras sesiones.
 
-Estas pruebas pueden ejecutarse **de forma local** o integrarse en el **pipeline de CI/CD**, asegurando así que cada modificación del proyecto no afecte negativamente ni la conexión con la base de datos ni la disponibilidad de la aplicación. De este modo, se detectan de manera temprana posibles problemas de configuración o despliegue, lo que facilita su corrección inmediata.
+4. **Construir y Desplegar los Contenedores**:
+    ```yaml
+    - name: Construir imágenes de Docker
+      run: |
+        docker-compose build --no-cache
+      working-directory: './'
+
+    - name: Iniciar Docker Compose
+      run: docker-compose up -d
+      working-directory: './'
+    ```
+    *Descripción*: Utiliza Docker Compose para construir las imágenes de los servicios definidos en `docker-compose.yml` y los despliega en modo desacoplado (`-d`), permitiendo que se ejecuten en segundo plano.
+
+### **Validación del Funcionamiento del Clúster**
+
+Una vez desplegados los contenedores, es crucial validar que todos los servicios están operativos y se comunican correctamente. Para ello, se han implementado pruebas automatizadas que se ejecutan después de asegurar que los servicios están activos.
+
+
+
+
+1. **Configurar el Entorno Python**:
+    ```yaml
+    - name: Configurar Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.12'
+    ```
+    *Descripción*: Configura el entorno Python con la versión especificada para ejecutar las pruebas.
+
+2. **Cachear Dependencias de Pip**:
+    ```yaml
+    - name: Cachear dependencias de pip
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-
+    ```
+    *Descripción*: Utiliza la acción de caché de GitHub para almacenar y restaurar las dependencias de `pip`, acelerando el tiempo de instalación en ejecuciones futuras.
+
+3. **Instalar Dependencias**:
+    ```yaml
+    - name: Instalar dependencias
+      run: |
+        python -m pip install --upgrade pip
+        if [ -f requirements.txt ]; then
+          pip install -r requirements.txt
+        else
+          pip install pytest requests
+        fi
+    ```
+    *Descripción*: 
+    - Actualiza `pip` a la última versión.
+    - Instala las dependencias listadas en `requirements.txt`. Si el archivo no existe, instala paquetes predeterminados como `pytest` y `requests`.
+
+4. **Ejecutar Pruebas Automatizadas**:
+    ```yaml
+    - name: Ejecutar Pruebas
+      run: |
+        sudo chown -R $USER:$USER logs
+        chmod 777 logs
+        ls -l 
+        pytest tests/*
+    ```
+    *Descripción*: Ejecuta las pruebas utilizando `pytest`, buscando en el directorio `tests/`. Estas pruebas validan:
+    - **Disponibilidad de la Aplicación Flask**: Comprueba que la API está en funcionamiento y responde a las solicitudes.
+    - **Conexión con la Base de Datos**: Asegura que la aplicación puede establecer una conexión exitosa con la base de datos configurada.
+    - **Implicitamente comprueban la conexión entre los logs si no da error**
+
+
 
 ## 📋 6. Publicación en GitHub Packages y Flujo CI/CD
 
-En el repositorio, se han configurado **GitHub Actions** para automatizar la construcción y publicación de las imágenes en **GitHub Packages**. Cada push a la rama principal dispara un **pipeline** que:
+En esta sección, se detalla cómo se ha configurado **GitHub Actions** para automatizar la construcción y publicación de imágenes Docker en **GitHub Packages**, integrando los principios de **Integración Continua** y **Despliegue Continuo** (CI/CD). Este proceso asegura la calidad y coherencia de la aplicación mediante la ejecución automática de pruebas y la publicación de imágenes solo si todas las pruebas son exitosas.
 
-1. Construye la imagen Docker.  
-2. Ejecuta las pruebas de validación.  
-3. Publica la imagen resultante en GitHub Packages si todas las pruebas han sido exitosas.
+### **Descripción General del Flujo de Trabajo**
 
-De esta forma, se integran los principios de **Integración Continua** y **Despliegue Continuo** (CI/CD), garantizando la calidad y la coherencia de la aplicación.
-todo esto está configurado en docker-publish.yml .
+Cada vez que se realiza un _push_ a las ramas principales (`main` y `dev`), se activa un _pipeline_ que realiza las siguientes acciones:
+
+1. **Construcción de la Imagen Docker**: Se construye la imagen Docker de la aplicación utilizando el `Dockerfile` proporcionado.
+2. **Ejecución de Pruebas de Validación**: Se ejecutan pruebas automatizadas para verificar que la aplicación funciona correctamente.
+3. **Publicación de la Imagen en GitHub Packages**: Si todas las pruebas pasan exitosamente, la imagen Docker se publica en GitHub Packages, asegurando que solo se desplieguen imágenes verificadas y de confianza.
+
+### **Configuración en `docker-publish.yml`**
+
+El archivo `docker-publish.yml` contiene la configuración necesaria para implementar este flujo de trabajo en **GitHub Actions**. A continuación, se presenta el contenido del archivo con una explicación de sus componentes principales.
+
+```yaml
+name: Build, Test, and Publish Docker Image 
+
+on:
+  push:
+    branches:
+      - main
+      - dev
+
+jobs:
+  build-test-deploy:
+    runs-on: ubuntu-latest
+
+    env:
+      IMAGE_NAME: ghcr.io/adrianoggm/cc.2024-2025.gestion-de-penas-de-futbol
+      IMAGE_TAG: ${{ github.sha }}
+
+    steps:
+      # Clonar el repositorio
+      - name: Clonar el repositorio
+        uses: actions/checkout@v4
+
+      # Instalar Docker
+      - name: Instalar Docker
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            ca-certificates \
+            curl \
+            gnupg \
+            lsb-release
+
+          # Agregar la clave GPG oficial de Docker
+          curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
+
+          # Configurar el repositorio estable de Docker
+          echo \
+            "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu \
+            $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+
+          sudo apt-get update
+          sudo apt-get install -y docker-ce docker-ce-cli containerd.io
+
+          # Verificar instalación de Docker
+          docker --version
+
+      # Instalar Docker Compose usando apt-get
+      - name: Instalar Docker Compose
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y docker-compose
+          docker-compose --version
+
+      # Iniciar y habilitar el servicio de Docker
+      - name: Iniciar Servicio de Docker
+        run: |
+          sudo systemctl start docker
+          sudo systemctl enable docker
+
+      # Construir las imágenes de Docker con 'docker-compose'
+      - name: Construir imágenes de Docker
+        run: |
+          docker-compose build --no-cache
+        working-directory: './'
+
+      # Iniciar Docker Compose en modo desacoplado
+      - name: Iniciar Docker Compose
+        run: docker-compose up -d
+        working-directory: './'
+
+      # Esperar 20 segundos para que los servicios se inicien
+      - name: Esperar a que los servicios estén listos
+        run: |
+          echo "Esperando 20 segundos para que los servicios se inicien..."
+          sleep 20
+          echo "Tiempo de espera completado. Asumiendo que los servicios están activos."
+          docker-compose ps 
+      # Configurar Python
+      - name: Configurar Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.12'
+
+      # Cachear dependencias de pip
+      - name: Cachear dependencias de pip
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      # Instalar dependencias
+      - name: Instalar dependencias
+        run: |
+          python -m pip install --upgrade pip
+          if [ -f requirements.txt ]; then
+            pip install -r requirements.txt
+          else
+            pip install pytest requests
+          fi
+
+      # Ejecutar Pruebas
+      - name: Ejecutar Pruebas
+        run: |
+          sudo chown -R $USER:$USER logs
+          chmod 777 logs
+          ls -l 
+          pytest 
+
+      # Construir Imagen Docker
+      - name: Construir Imagen Docker
+        run: |
+          docker build -t $IMAGE_NAME:$IMAGE_TAG .
+          docker tag $IMAGE_NAME:$IMAGE_TAG $IMAGE_NAME:latest
+        working-directory: './'
+
+      # Iniciar Sesión en GitHub Container Registry
+      - name: Iniciar Sesión en GitHub Container Registry
+        run: echo ${{ secrets.GHCR_PASSWORD }} | docker login ghcr.io -u ${{ secrets.GHCR_USERNAME }} --password-stdin
+
+      # Push de la Imagen Docker
+      - name: Push de la Imagen Docker
+        run: |
+          docker push $IMAGE_NAME:$IMAGE_TAG
+          docker push $IMAGE_NAME:latest
+
+      # Desplegar y Limpiar Docker Compose
+      - name: Desplegar y Limpiar Docker Compose
+        if: always()
+        run: docker-compose down
+        working-directory: './'
+
+```
 ---
+
+### Componentes Clave del Flujo de Trabajo
+
+#### Trigger del Flujo de Trabajo:
+
+```yaml
+on:
+  push:
+    branches:
+      - main
+      - dev
+```
+#### Variables de Entorno:
+``` yaml
+env:
+  IMAGE_NAME: ghcr.io/adrianoggm/cc.2024-2025.gestion-de-penas-de-futbol
+  IMAGE_TAG: ${{ github.sha }}
+
+```
+Descripción: Define las variables de entorno IMAGE_NAME y IMAGE_TAG que se utilizan para etiquetar las imágenes Docker.
+### Pasos del Flujo de Trabajo:
+#### Clonar el Repositorio: Obtiene el código fuente necesario para construir los contenedores.
+```yaml
+- name: Clonar el repositorio
+  uses: actions/checkout@v4
+```
+#### Instalar Docker y Docker Compose: Prepara el entorno con las herramientas necesarias para manejar contenedores.
+```yaml
+- name: Instalar Docker
+  run: |
+    sudo apt-get update
+    sudo apt-get install -y ...
+
+- name: Instalar Docker Compose
+  run: |
+    sudo apt-get update
+    sudo apt-get install -y docker-compose
+    docker-compose --version
+```
+#### Iniciar el Servicio de Docker: Asegura que Docker está en funcionamiento.
+```yaml
+- name: Iniciar Servicio de Docker
+  run: |
+    sudo systemctl start docker
+    sudo systemctl enable docker
+  ```
+#### Construir y Desplegar Contenedores: 
+Utiliza Docker Compose para construir las imágenes y desplegar los servicios.
+```yaml
+
+- name: Construir imágenes de Docker
+  run: |
+    docker-compose build --no-cache
+  working-directory: './'
+
+- name: Iniciar Docker Compose
+  run: docker-compose up -d
+  working-directory: './'
+```
+#### Esperar y Verificar Servicios: Introduce una espera para permitir que los servicios se inicien y verifica su estado.
+```yaml
+- name: Esperar a que los servicios estén listos
+  run: |
+    echo "Esperando 20 segundos..."
+    sleep 20
+    echo "Tiempo de espera completado."
+    docker-compose ps 
+```
+#### Configurar Python y Cachear Dependencias: Prepara el entorno Python y optimiza la instalación de dependencias.
+``` yaml
+
+- name: Configurar Python
+  uses: actions/setup-python@v4
+  with:
+    python-version: '3.12'
+
+- name: Cachear dependencias de pip
+  uses: actions/cache@v3
+  with:
+    path: ~/.cache/pip
+    key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+    restore-keys: |
+      ${{ runner.os }}-pip-
+```
+#### Instalar Dependencias: 
+Actualiza pip y instala las dependencias necesarias para ejecutar las pruebas.
+``` yaml
+- name: Instalar dependencias
+  run: |
+    python -m pip install --upgrade pip
+    if [ -f requirements.txt ]; then
+      pip install -r requirements.txt
+    else
+      pip install pytest requests
+  ```
+#### Ejecutar Pruebas Automatizadas: 
+Realiza pruebas automatizadas para validar el funcionamiento de la aplicación.
+``` yaml
+- name: Ejecutar Pruebas
+  run: |
+    sudo chown -R $USER:$USER logs
+    chmod 777 logs
+    ls -l 
+    pytest 
+  ```
+#### Construir y Publicar Imagen Docker: 
+Construye la imagen final, la etiqueta y la publica en GitHub Container Registry.
+``` yaml
+- name: Construir Imagen Docker
+  run: |
+    docker build -t $IMAGE_NAME:$IMAGE_TAG .
+    docker tag $IMAGE_NAME:$IMAGE_TAG $IMAGE_NAME:latest
+  working-directory: './'
+
+- name: Iniciar Sesión en GitHub Container Registry
+  run: echo ${{ secrets.GHCR_PASSWORD }} | docker login ghcr.io -u ${{ secrets.GHCR_USERNAME }} --password-stdin
+
+- name: Push de la Imagen Docker
+  run: |
+    docker push $IMAGE_NAME:$IMAGE_TAG
+    docker push $IMAGE_NAME:latest
+```
+### Desplegar y Limpiar:
+#### Detiene y elimina los contenedores desplegados, asegurando una limpieza adecuada.
+```yaml
+- name: Desplegar y Limpiar Docker Compose
+  if: always()
+  run: docker-compose down
+  working-directory: './'
+  ```
+## Integración de CI/CD
+
+Este flujo de trabajo implementa los principios de **Integración Continua** y **Despliegue Continuo** (CI/CD) al automatizar todo el proceso desde la construcción hasta la publicación de las imágenes Docker. Esto garantiza que cada cambio en el código fuente se pruebe y despliegue de manera consistente y confiable, manteniendo altos estándares de calidad y facilitando un desarrollo ágil y eficiente.
+
+### Beneficios de Esta Configuración
+
+- **Automatización Total**: Reduce la intervención manual, minimizando errores y acelerando el proceso de despliegue.
+- **Validación Continua**: Asegura que cada push al repositorio pasa por un riguroso proceso de pruebas antes de ser desplegado.
+- **Consistencia y Calidad**: Mantiene la coherencia en las versiones de las imágenes y la calidad del código mediante pruebas automatizadas.
+- **Facilidad de Despliegue**: Simplifica el proceso de publicación de imágenes, permitiendo un despliegue rápido y seguro en diferentes entornos.
+
+### Conclusión
+
+La configuración de **GitHub Actions** para la construcción y publicación de imágenes Docker en **GitHub Packages** es una parte esencial del flujo de trabajo de CI/CD, garantizando que la aplicación se mantenga en un estado de alta calidad y esté siempre lista para ser desplegada en producción. Esta automatización no solo mejora la eficiencia del desarrollo, sino que también proporciona una capa adicional de confianza en la estabilidad y funcionalidad de la aplicación.
+
+**Nota** (se ha eliminado el yml anterior que probaba en el entorno local la aplicación ya que eran pruebas redundantes que ya realiza este Action).
