@@ -6,7 +6,6 @@ services:
     container_name: app-container
     ports:
       - "5000:5000"
-    user: "${UID}:${GID}"
     volumes:
       - ./src:/app/src
       - ./logs:/app/logs
@@ -18,7 +17,7 @@ services:
       DATABASE_URL: postgresql://user:password@db:5432/gestion_penas
     networks:
       - grafana_network
-    
+
   db:
     image: postgres:15
     container_name: db-container

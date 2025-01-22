@@ -1,4 +1,4 @@
-name: Build, Test, and Publish Docker Image
+name: Build, Test, and Publish Docker Image 
 
 on:
   push:
@@ -7,51 +7,125 @@ on:
       - dev
 
 jobs:
-  build-test:
+  build-test-deploy:
     runs-on: ubuntu-latest
 
+    env:
+      IMAGE_NAME: ghcr.io/adrianoggm/cc.2024-2025.gestion-de-penas-de-futbol
+      IMAGE_TAG: ${{ github.sha }}
+
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v2
+      # Clonar el repositorio
+      - name: Clonar el repositorio
+        uses: actions/checkout@v4
 
-    - name: Log in to GitHub Container Registry
-      uses: docker/login-action@v2
-      with:
-        registry: ghcr.io
-        username: ${{ secrets.GHCR_USERNAME }}
-        password: ${{ secrets.GHCR_PASSWORD }}
+      # Instalar Docker
+      - name: Instalar Docker
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            ca-certificates \
+            curl \
+            gnupg \
+            lsb-release
 
-    - name: Build and Push Docker Image
-      uses: docker/build-push-action@v2
-      with:
-        push: true
-        tags: ghcr.io/adrianoggm/cc.2024-2025.gestion-de-penas-de-futbol:latest
-        labels: |
-          org.opencontainers.image.source=https://github.com/adrianoggm/CC.2024-2025.Gestion-de-penas-de-futbol
+          # Agregar la clave GPG oficial de Docker
+          curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
 
-    - name: Install Docker Compose
-      run: |
-        sudo curl -L "https://github.com/docker/compose/releases/download/v2.20.2/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
-        sudo chmod +x /usr/local/bin/docker-compose
-        docker-compose version
+          # Configurar el repositorio estable de Docker
+          echo \
+            "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu \
+            $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
 
-    - name: Start Docker Compose
-      run: docker-compose up -d
+          sudo apt-get update
+          sudo apt-get install -y docker-ce docker-ce-cli containerd.io
 
-    - name: Install Python and dependencies for testing
-      uses: actions/setup-python@v2
-      with:
-        python-version: 3.12
+          # Verificar instalación de Docker
+          docker --version
 
-    - name: Install test dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install requests
+      # Instalar Docker Compose usando apt-get
+      - name: Instalar Docker Compose
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y docker-compose
+          docker-compose --version
 
-    - name: Run Cluster Tests
-      run: |
-        sleep 10  # Esperar para que los contenedores estén listos
-        python tests/test_cluster.py
+      # Iniciar y habilitar el servicio de Docker
+      - name: Iniciar Servicio de Docker
+        run: |
+          sudo systemctl start docker
+          sudo systemctl enable docker
 
-    - name: Tear down Docker Compose
-      run: docker-compose down
+      # Construir las imágenes de Docker con 'docker-compose'
+      - name: Construir imágenes de Docker
+        run: |
+          docker-compose build --no-cache
+        working-directory: './'
+
+      # Iniciar Docker Compose en modo desacoplado
+      - name: Iniciar Docker Compose
+        run: docker-compose up -d
+        working-directory: './'
+
+      # Esperar 20 segundos para que los servicios se inicien
+      - name: Esperar a que los servicios estén listos
+        run: |
+          echo "Esperando 20 segundos para que los servicios se inicien..."
+          sleep 20
+          echo "Tiempo de espera completado. Asumiendo que los servicios están activos."
+          docker-compose ps 
+      # Configurar Python
+      - name: Configurar Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.12'
+
+      # Cachear dependencias de pip
+      - name: Cachear dependencias de pip
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      # Instalar dependencias
+      - name: Instalar dependencias
+        run: |
+          python -m pip install --upgrade pip
+          if [ -f requirements.txt ]; then
+            pip install -r requirements.txt
+          else
+            pip install pytest requests
+          fi
+
+      # Ejecutar Pruebas
+      - name: Ejecutar Pruebas
+        run: |
+          sudo chown -R $USER:$USER logs
+          chmod 777 logs
+          ls -l 
+          pytest 
+
+      # Construir Imagen Docker
+      - name: Construir Imagen Docker
+        run: |
+          docker build -t $IMAGE_NAME:$IMAGE_TAG .
+          docker tag $IMAGE_NAME:$IMAGE_TAG $IMAGE_NAME:latest
+        working-directory: './'
+
+      # Iniciar Sesión en GitHub Container Registry
+      - name: Iniciar Sesión en GitHub Container Registry
+        run: echo ${{ secrets.GHCR_PASSWORD }} | docker login ghcr.io -u ${{ secrets.GHCR_USERNAME }} --password-stdin
+
+      # Push de la Imagen Docker
+      - name: Push de la Imagen Docker
+        run: |
+          docker push $IMAGE_NAME:$IMAGE_TAG
+          docker push $IMAGE_NAME:latest
+
+      # Desplegar y Limpiar Docker Compose
+      - name: Desplegar y Limpiar Docker Compose
+        if: always()
+        run: docker-compose down
+        working-directory: './'

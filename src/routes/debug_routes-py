@@ -1,0 +1,24 @@
+from flask import Blueprint, jsonify
+import os
+
+debug_bp = Blueprint('debug', __name__)
+
+@debug_bp.route('/api/debug/logs', methods=['GET'])
+def get_logs():
+    """
+    Devuelve los logs actuales desde un archivo de log configurado.
+    """
+    log_file = os.getenv('LOG_FILE_PATH', 'app.log')  # Usa una variable de entorno para definir el archivo
+    if not os.path.exists(log_file):
+        return jsonify({"error": "Log file not found"}), 404
+
+    with open(log_file, 'r') as f:
+        logs = f.readlines()
+    return jsonify({"logs": logs}), 200
+
+@debug_bp.route('/api/debug/health', methods=['GET'])
+def health_check():
+    """
+    Devuelve un estado simple de salud del sistema.
+    """
+    return jsonify({"status": "healthy"}), 200

@@ -19,6 +19,7 @@ def create_app():
 
     @app.route('/api', methods=['GET'])
     def index():
+        #send_log_to_service("Acceso a la página principal.")
         return jsonify({
             "message": "Bienvenido a la API de Gestión de Peñas",
             "status": "OK"
@@ -28,15 +29,16 @@ def create_app():
     @app.errorhandler(404)
     def not_found(error):
         logger.warning("Error 404: Ruta no encontrada.")
+        #send_log_to_service("Error 404: Ruta no encontrada.")
         return jsonify({"error": "No encontrado"}), 404
 
     @app.errorhandler(500)
     def internal_error(error):
         logger.error(f"Error 500: {error}")
+        #send_log_to_service(f"Error 500: {error}")
         return jsonify({"error": "Error interno del servidor"}), 500
 
     return app
-
 
 if __name__ == '__main__':
     flask_app = create_app()

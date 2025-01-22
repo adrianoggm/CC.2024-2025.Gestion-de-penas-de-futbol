@@ -1,53 +1,33 @@
 import logging
-import os
 from logging.handlers import RotatingFileHandler
-def setup_logging(log_name):
-    
-    # Crear el directorio de logs si no existe
-    log_dir = os.path.join(os.getcwd(), 'logs')
-    os.makedirs(log_dir, exist_ok=True)
+import os
+import graypy  # Asegúrate de tener instalado graypy con `pip install graypy`
 
-    # Ruta del archivo de log
-    log_file = os.path.join(log_dir, f"{log_name}.log")
-    print(f"Configurando logger para: {log_file}")
-    if not os.access(log_dir, os.W_OK):
-        print(f"El directorio {log_dir} no tiene permisos de escritura.")
-    if os.path.exists(log_file):
-        print(f"El archivo {log_file} ya existe.")
-    else:
-        print(f"El archivo {log_file} no existe. Se intentará crear.")
-    # Crear logger con el nombre especificado
-    logger = logging.getLogger(log_name)
-    logger.setLevel(logging.DEBUG)  # Capturar todos los niveles
+def setup_logging(name):
+    """
+    Configura el logger con rotación de archivos, consola y envío a Graylog.
+    """
+    logger = logging.getLogger(name)
+    logger.setLevel(logging.DEBUG)  # Ajusta el nivel según tus necesidades
 
-    # Revisar si el logger ya tiene handlers para evitar duplicados
-    if logger.hasHandlers():
-        logger.handlers.clear()
+    # Handler para rotación de archivos
+    file_handler = RotatingFileHandler('logs/application.log', maxBytes=10*1024*1024, backupCount=5)
+    file_handler.setLevel(logging.DEBUG)
+    file_formatter = logging.Formatter('[%(asctime)s] %(levelname)s in %(module)s: %(message)s')
+    file_handler.setFormatter(file_formatter)
+    logger.addHandler(file_handler)
 
-    # Crear un handler de archivo con rotación
-    try:
-        rotating_handler = RotatingFileHandler(
-            log_file,
-            maxBytes=5 * 1024 * 1024,  # 5 MB
-            backupCount=3,  # Guardar hasta 3 backups
-            encoding='utf-8'
-        )
-        rotating_handler.setLevel(logging.DEBUG)  # Registrar todo
-        formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-        rotating_handler.setFormatter(formatter)
-
-        # Agregar el handler al logger
-        logger.addHandler(rotating_handler)
-    except Exception as e:
-        print(f"Error al configurar RotatingFileHandler: {e}")
-
-    # Crear un handler para la consola
+    # Handler para consola
     console_handler = logging.StreamHandler()
-    console_handler.setLevel(logging.INFO)
-    console_formatter = logging.Formatter('%(asctime)s - %(message)s')
-    console_handler.setFormatter(console_formatter)
-
-    # Agregar handler de consola al logger
+    console_handler.setLevel(logging.DEBUG)
+    console_handler.setFormatter(file_formatter)
     logger.addHandler(console_handler)
+
+    # Handler para Graylog (GELF UDP)
+    graylog_host = os.getenv('GRAYLOG_HOST', 'localhost')  # Cambia si es necesario
+    graylog_port = int(os.getenv('GRAYLOG_PORT', 12201))   # Cambia si es necesario
+    gelf_handler = graypy.GELFUDPHandler(graylog_host, graylog_port)
+    gelf_handler.setLevel(logging.DEBUG)
+    logger.addHandler(gelf_handler)
 
     return logger
