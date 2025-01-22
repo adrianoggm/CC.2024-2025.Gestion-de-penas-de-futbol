@@ -73,7 +73,7 @@ jobs:
           echo "Esperando 20 segundos para que los servicios se inicien..."
           sleep 20
           echo "Tiempo de espera completado. Asumiendo que los servicios están activos."
-
+          docker-compose ps 
       # Configurar Python
       - name: Configurar Python
         uses: actions/setup-python@v4
