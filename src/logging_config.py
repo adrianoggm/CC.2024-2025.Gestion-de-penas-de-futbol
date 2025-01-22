@@ -1,32 +1,33 @@
 import logging
-import requests
+from logging.handlers import RotatingFileHandler
 import os
+import graypy  # Asegúrate de tener instalado graypy con `pip install graypy`
 
 def setup_logging(name):
+    """
+    Configura el logger con rotación de archivos, consola y envío a Graylog.
+    """
     logger = logging.getLogger(name)
-    logger.setLevel(logging.INFO)
+    logger.setLevel(logging.DEBUG)  # Ajusta el nivel según tus necesidades
 
-    # Crear handler de consola
+    # Handler para rotación de archivos
+    file_handler = RotatingFileHandler('logs/application.log', maxBytes=10*1024*1024, backupCount=5)
+    file_handler.setLevel(logging.DEBUG)
+    file_formatter = logging.Formatter('[%(asctime)s] %(levelname)s in %(module)s: %(message)s')
+    file_handler.setFormatter(file_formatter)
+    logger.addHandler(file_handler)
+
+    # Handler para consola
     console_handler = logging.StreamHandler()
-    console_handler.setLevel(logging.INFO)
-
-    # Formato del log
-    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-    console_handler.setFormatter(formatter)
-
-    # Añadir handler al logger
+    console_handler.setLevel(logging.DEBUG)
+    console_handler.setFormatter(file_formatter)
     logger.addHandler(console_handler)
 
-    return logger
+    # Handler para Graylog (GELF UDP)
+    graylog_host = os.getenv('GRAYLOG_HOST', 'localhost')  # Cambia si es necesario
+    graylog_port = int(os.getenv('GRAYLOG_PORT', 12201))   # Cambia si es necesario
+    gelf_handler = graypy.GELFUDPHandler(graylog_host, graylog_port)
+    gelf_handler.setLevel(logging.DEBUG)
+    logger.addHandler(gelf_handler)
 
-def send_log_to_service(message):
-    """
-    Envía un log al contenedor de logs mediante la API.
-    """
-    LOGS_API_URL = os.getenv('LOGS_API_URL', 'http://logs-container:6000/api/logs')
-    try:
-        response = requests.post(LOGS_API_URL, json={"message": message})
-        if response.status_code != 200:
-            print(f"Failed to send log: {response.text}")
-    except requests.exceptions.RequestException as e:
-        print(f"Exception while sending log: {e}")
+    return logger

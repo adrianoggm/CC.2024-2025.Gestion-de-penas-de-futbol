@@ -26,7 +26,7 @@ Las funcionalidades incluidas en esta fase del proyecto corresponden a las sigui
 - **[HU-11]**: Como usuario, quiero ver las estadísticas de los jugadores de la peña.
 - **[HU-13]**: Como usuario, quiero consultar los resultados de los partidos jugados.
 
-Estas funcionalidades establecen una versión funcional que permite a los administradores gestionar peñas, jugadores y registros. La implementación de estas características puede verificarse en el documento: **[Ejecución de la App](/EjecucionHito2.md)**. Con estas mejoras, hemos iniciado el establecimiento de una lógica de negocio robusta en nuestra aplicación.
+Estas funcionalidades establecen una versión funcional que permite a los administradores gestionar peñas, jugadores y registros. La implementación de estas características puede verificarse en el documento: **[Ejecución de la App](/EjecucionHito.md)**. Con estas mejoras, hemos iniciado el establecimiento de una lógica de negocio robusta en nuestra aplicación.
 
 ---
 

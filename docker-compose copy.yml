@@ -1,0 +1,79 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: app-container
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./src:/app/src
+      - ./logs:/app/logs
+    depends_on:
+      - db
+      - loki
+      - promtail
+    environment:
+      DATABASE_URL: postgresql://user:password@db:5432/gestion_penas
+    networks:
+      - logging-network
+
+  db:
+    image: postgres:15
+    container_name: db-container
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: gestion_penas
+    volumes:
+      - ./Gestion_Penas.sql:/docker-entrypoint-initdb.d/Gestion_Penas.sql
+    ports:
+      - "5432:5432"
+    command: bash -c "ls -la /docker-entrypoint-initdb.d/ && cat /docker-entrypoint-initdb.d/Gestion_Penas.sql && docker-entrypoint.sh postgres"
+    networks:
+      - logging-network
+
+  loki:
+    image: grafana/loki:2.8.2
+    container_name: loki-container
+    ports:
+      - "3100:3100"
+    volumes:
+      - ./loki-config.yaml:/etc/loki/config.yaml:ro
+    networks:
+      - logging-network
+
+  promtail:
+    image: grafana/promtail:2.8.2
+    container_name: promtail-container
+    volumes:
+      - ./logs:/var/log
+      - ./promtail-config.yaml:/etc/promtail/config.yaml:ro
+    command: -config.file=/etc/promtail/config.yaml
+    depends_on:
+      - loki
+    networks:
+      - logging-network
+
+  grafana:
+    image: grafana/grafana:10.1.0
+    container_name: grafana-container
+    ports:
+      - "3000:3000"
+    volumes:
+       - grafana-storage:/var/lib/grafana
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    depends_on:
+      - loki
+    networks:
+      - logging-network
+
+volumes:
+  db_data:
+  grafana-storage:
+
+networks:
+  logging-network:
+    driver: bridge
