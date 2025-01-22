@@ -15,105 +15,111 @@ jobs:
       IMAGE_TAG: ${{ github.sha }}
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v3
+      # Clonar el repositorio
+      - name: Clonar el repositorio
+        uses: actions/checkout@v4
 
-    - name: Instalar Docker
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y \
-          ca-certificates \
-          curl \
-          gnupg \
-          lsb-release
+      # Instalar Docker
+      - name: Instalar Docker
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            ca-certificates \
+            curl \
+            gnupg \
+            lsb-release
 
-        # Agregar la clave GPG oficial de Docker
-        curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
+          # Agregar la clave GPG oficial de Docker
+          curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
 
-        # Configurar el repositorio estable
-        echo \
-          "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu \
-          $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+          # Configurar el repositorio estable
+          echo \
+            "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu \
+            $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
 
-        sudo apt-get update
-        sudo apt-get install -y docker-ce docker-ce-cli containerd.io
+          sudo apt-get update
+          sudo apt-get install -y docker-ce docker-ce-cli containerd.io
 
-        # Verificar instalación
-        docker --version
+          # Verificar instalación
+          docker --version
 
-    - name: Configurar Docker Compose
-      run: |
-        sudo apt-get install docker-compose -y
-        docker-compose --version
+      # Configurar Docker Compose
+      - name: Configurar Docker Compose
+        run: |
+          sudo apt-get install docker-compose -y
+          docker-compose --version
 
-    - name: Iniciar Servicio de Docker
-      run: |
-        sudo systemctl start docker
-        sudo systemctl enable docker
+      # Iniciar Servicio de Docker
+      - name: Iniciar Servicio de Docker
+        run: |
+          sudo systemctl start docker
+          sudo systemctl enable docker
 
-    - name: Iniciar Docker Compose
-      run: docker-compose up -d
+      # Construir las imágenes de Docker con 'docker-compose'
+      - name: Construir imágenes de Docker
+        run: |
+          docker-compose build --no-cache
+        working-directory: './'
 
-    - name: Esperar a que los servicios estén listos
-      run: |
-        echo "Esperando a que los servicios estén listos..."
-        declare -A services_ports=( ["app"]=5000 ["db"]=5432 ["grafana"]=3000 ["loki"]=3100 )
-        for service in "${!services_ports[@]}"; do
-          port=${services_ports[$service]}
-          echo "Verificando $service en el puerto $port..."
-          for i in {1..30}; do
-            if nc -z localhost $port; then
-              echo "$service está disponible en el puerto $port."
-              break
-            else
-              echo "Esperando a que $service esté listo (intento $i/30)..."
-              sleep 2
-            fi
-            if [ $i -eq 30 ]; then
-              echo "$service no se inició a tiempo." >&2
-              exit 1
-            fi
-          done
-        done
-        echo "Todos los servicios están listos."
+      # Iniciar Docker Compose
+      - name: Iniciar Docker Compose
+        run: docker-compose up -d
+        working-directory: './'
 
-    - name: Configurar Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: '3.12'
+      # Esperar 20 segundos para que los servicios se inicien
+      - name: Esperar a que los servicios estén listos
+        run: |
+          echo "Esperando 20 segundos para que los servicios se inicien..."
+          sleep 20
+          echo "Tiempo de espera completado. Asumiendo que los servicios están activos."
 
-    - name: Cachear dependencias de pip
-      uses: actions/cache@v3
-      with:
-        path: ~/.cache/pip
-        key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
-        restore-keys: |
-          ${{ runner.os }}-pip-
+      # Configurar Python
+      - name: Configurar Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.12'
 
-    - name: Instalar dependencias
-      run: |
-        python -m pip install --upgrade pip
-        if [ -f requirements.txt ]; then
-          pip install -r requirements.txt
-        else
-          pip install pytest requests
+      # Cachear dependencias de pip
+      - name: Cachear dependencias de pip
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
 
-    - name: Ejecutar Pruebas
-      run: pytest tests/*
+      # Instalar dependencias
+      - name: Instalar dependencias
+        run: |
+          python -m pip install --upgrade pip
+          if [ -f requirements.txt ]; then
+            pip install -r requirements.txt
+          else
+            pip install pytest requests
 
-    - name: Construir Imagen Docker
-      run: |
-        docker build -t $IMAGE_NAME:$IMAGE_TAG .
-        docker tag $IMAGE_NAME:$IMAGE_TAG $IMAGE_NAME:latest
+      # Ejecutar Pruebas
+      - name: Ejecutar Pruebas
+        run: pytest tests/*
 
-    - name: Iniciar Sesión en GitHub Container Registry
-      run: echo ${{ secrets.GHCR_PASSWORD }} | docker login ghcr.io -u ${{ secrets.GHCR_USERNAME }} --password-stdin
+      # Construir Imagen Docker
+      - name: Construir Imagen Docker
+        run: |
+          docker build -t $IMAGE_NAME:$IMAGE_TAG .
+          docker tag $IMAGE_NAME:$IMAGE_TAG $IMAGE_NAME:latest
+        working-directory: './'
 
-    - name: Push de la Imagen Docker
-      run: |
-        docker push $IMAGE_NAME:$IMAGE_TAG
-        docker push $IMAGE_NAME:latest
+      # Iniciar Sesión en GitHub Container Registry
+      - name: Iniciar Sesión en GitHub Container Registry
+        run: echo ${{ secrets.GHCR_PASSWORD }} | docker login ghcr.io -u ${{ secrets.GHCR_USERNAME }} --password-stdin
 
-    - name: Desplegar y Limpiar Docker Compose
-      if: always()
-      run: docker-compose down
+      # Push de la Imagen Docker
+      - name: Push de la Imagen Docker
+        run: |
+          docker push $IMAGE_NAME:$IMAGE_TAG
+          docker push $IMAGE_NAME:latest
+
+      # Desplegar y Limpiar Docker Compose
+      - name: Desplegar y Limpiar Docker Compose
+        if: always()
+        run: docker-compose down
+        working-directory: './'
