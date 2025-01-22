@@ -97,6 +97,7 @@ jobs:
             pip install -r requirements.txt
           else
             pip install pytest requests
+          fi
 
       # Ejecutar Pruebas
       - name: Ejecutar Pruebas
