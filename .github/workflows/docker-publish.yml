@@ -102,8 +102,10 @@ jobs:
       # Ejecutar Pruebas
       - name: Ejecutar Pruebas
         run: |
+          sudo chown -R $USER:$USER logs
+          chmod 777 logs
           ls -l 
-          sudo pytest 
+          pytest 
 
       # Construir Imagen Docker
       - name: Construir Imagen Docker
