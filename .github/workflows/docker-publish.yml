@@ -101,7 +101,8 @@ jobs:
 
       # Ejecutar Pruebas
       - name: Ejecutar Pruebas
-        run: ls -l 
+        run: |
+          ls -l 
           pytest 
 
       # Construir Imagen Docker
