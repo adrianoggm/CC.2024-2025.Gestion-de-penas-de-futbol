@@ -11,7 +11,7 @@ def setup_logging(name):
     logger.setLevel(logging.DEBUG)  # Ajusta el nivel según tus necesidades
 
     # Handler para rotación de archivos
-    file_handler = RotatingFileHandler('logs/application.log', maxBytes=10*1024*1024, backupCount=5)
+    file_handler = RotatingFileHandler('app/logs/application.log', maxBytes=10*1024*1024, backupCount=5)
     file_handler.setLevel(logging.DEBUG)
     file_formatter = logging.Formatter('[%(asctime)s] %(levelname)s in %(module)s: %(message)s')
     file_handler.setFormatter(file_formatter)
