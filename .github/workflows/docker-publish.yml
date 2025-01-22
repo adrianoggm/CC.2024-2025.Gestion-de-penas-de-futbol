@@ -103,7 +103,7 @@ jobs:
       - name: Ejecutar Pruebas
         run: |
           ls -l 
-          pytest 
+          sudo pytest 
 
       # Construir Imagen Docker
       - name: Construir Imagen Docker
