@@ -1,125 +1,72 @@
-name: Build, Test, and Publish Docker Image 
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: app-container
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./src:/app/src
+      - ./logs:/app/logs
+    depends_on:
+      - db
+      - loki
+      - promtail
+    environment:
+      DATABASE_URL: postgresql://user:password@db:5432/gestion_penas
+    networks:
+      - grafana_network
 
-on:
-  push:
-    branches:
-      - main
-      - dev
+  db:
+    image: postgres:15
+    container_name: db-container
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: gestion_penas
+    volumes:
+      - ./Gestion_Penas.sql:/docker-entrypoint-initdb.d/Gestion_Penas.sql
+    ports:
+      - "5432:5432"
+    networks:
+      - grafana_network
 
-jobs:
-  build-test-deploy:
-    runs-on: ubuntu-latest
+  grafana:
+    image: grafana/grafana-oss
+    container_name: grafana
+    restart: unless-stopped
+    ports:
+      - '3000:3000'
+    volumes:
+      - grafana_data:/var/lib/grafana
+    networks:
+      - grafana_network
 
-    env:
-      IMAGE_NAME: ghcr.io/adrianoggm/cc.2024-2025.gestion-de-penas-de-futbol
-      IMAGE_TAG: ${{ github.sha }}
+  loki:
+    image: grafana/loki:2.9.0
+    container_name: grafana-loki
+    command: -config.file=/etc/loki/local-config.yaml
+    volumes:
+      - ./loki-config.yaml:/etc/loki/local-config.yaml
+    ports:
+      - "3100:3100"
+    networks:
+      - grafana_network
 
-    steps:
-      # Clonar el repositorio
-      - name: Clonar el repositorio
-        uses: actions/checkout@v4
+  promtail:
+    image: grafana/promtail:2.9.0
+    container_name: promtail
+    volumes:
+      - ./logs:/var/log/nginx
+      - ./promtail-config.yaml:/etc/promtail/config.yml
+    command: -config.file=/etc/promtail/config.yml
+    networks:
+      - grafana_network
 
-      # Instalar Docker
-      - name: Instalar Docker
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            ca-certificates \
-            curl \
-            gnupg \
-            lsb-release
+volumes:
+  grafana_data:
 
-          # Agregar la clave GPG oficial de Docker
-          curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
-
-          # Configurar el repositorio estable
-          echo \
-            "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu \
-            $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
-
-          sudo apt-get update
-          sudo apt-get install -y docker-ce docker-ce-cli containerd.io
-
-          # Verificar instalación
-          docker --version
-
-      # Configurar Docker Compose
-      - name: Configurar Docker Compose
-        run: |
-          sudo apt-get install docker-compose -y
-          docker-compose --version
-
-      # Iniciar Servicio de Docker
-      - name: Iniciar Servicio de Docker
-        run: |
-          sudo systemctl start docker
-          sudo systemctl enable docker
-
-      # Construir las imágenes de Docker con 'docker-compose'
-      - name: Construir imágenes de Docker
-        run: |
-          docker-compose build --no-cache
-        working-directory: './'
-
-      # Iniciar Docker Compose
-      - name: Iniciar Docker Compose
-        run: docker-compose up -d
-        working-directory: './'
-
-      # Esperar 20 segundos para que los servicios se inicien
-      - name: Esperar a que los servicios estén listos
-        run: |
-          echo "Esperando 20 segundos para que los servicios se inicien..."
-          sleep 20
-          echo "Tiempo de espera completado. Asumiendo que los servicios están activos."
-
-      # Configurar Python
-      - name: Configurar Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.12'
-
-      # Cachear dependencias de pip
-      - name: Cachear dependencias de pip
-        uses: actions/cache@v3
-        with:
-          path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
-          restore-keys: |
-            ${{ runner.os }}-pip-
-
-      # Instalar dependencias
-      - name: Instalar dependencias
-        run: |
-          python -m pip install --upgrade pip
-          if [ -f requirements.txt ]; then
-            pip install -r requirements.txt
-          else
-            pip install pytest requests
-
-      # Ejecutar Pruebas
-      - name: Ejecutar Pruebas
-        run: pytest tests/*
-
-      # Construir Imagen Docker
-      - name: Construir Imagen Docker
-        run: |
-          docker build -t $IMAGE_NAME:$IMAGE_TAG .
-          docker tag $IMAGE_NAME:$IMAGE_TAG $IMAGE_NAME:latest
-        working-directory: './'
-
-      # Iniciar Sesión en GitHub Container Registry
-      - name: Iniciar Sesión en GitHub Container Registry
-        run: echo ${{ secrets.GHCR_PASSWORD }} | docker login ghcr.io -u ${{ secrets.GHCR_USERNAME }} --password-stdin
-
-      # Push de la Imagen Docker
-      - name: Push de la Imagen Docker
-        run: |
-          docker push $IMAGE_NAME:$IMAGE_TAG
-          docker push $IMAGE_NAME:latest
-
-      # Desplegar y Limpiar Docker Compose
-      - name: Desplegar y Limpiar Docker Compose
-        if: always()
-        run: docker-compose down
-        working-directory: './'
+networks:
+  grafana_network:
+    driver: bridge
