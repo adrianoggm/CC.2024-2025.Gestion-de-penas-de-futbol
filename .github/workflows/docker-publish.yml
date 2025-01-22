@@ -101,7 +101,7 @@ jobs:
 
       # Ejecutar Pruebas
       - name: Ejecutar Pruebas
-        run: pytest tests/*
+        run: pytest 
 
       # Construir Imagen Docker
       - name: Construir Imagen Docker
