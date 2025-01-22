@@ -846,5 +846,5 @@ Este flujo de trabajo implementa los principios de **Integración Continua** y *
 ### Conclusión
 
 La configuración de **GitHub Actions** para la construcción y publicación de imágenes Docker en **GitHub Packages** es una parte esencial del flujo de trabajo de CI/CD, garantizando que la aplicación se mantenga en un estado de alta calidad y esté siempre lista para ser desplegada en producción. Esta automatización no solo mejora la eficiencia del desarrollo, sino que también proporciona una capa adicional de confianza en la estabilidad y funcionalidad de la aplicación.
-
+![Packages](/docs/images/7.png)
 **Nota** (se ha eliminado el yml anterior que probaba en el entorno local la aplicación ya que eran pruebas redundantes que ya realiza este Action).
