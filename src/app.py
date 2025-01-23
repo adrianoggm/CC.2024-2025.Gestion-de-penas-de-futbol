@@ -30,7 +30,7 @@ def create_app():
     def not_found(error):
         logger.warning("Error 404: Ruta no encontrada.")
         #send_log_to_service("Error 404: Ruta no encontrada.")
-        return jsonify({"error": "No encontrado"}), 404
+        return jsonify({"error": "No encontrado "}), 404
 
     @app.errorhandler(500)
     def internal_error(error):
