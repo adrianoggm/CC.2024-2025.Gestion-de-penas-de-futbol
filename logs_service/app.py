@@ -38,3 +38,5 @@ def get_logs():
 if __name__ == '__main__':
     os.makedirs(os.path.dirname(LOG_FILE), exist_ok=True)
     app.run(host='0.0.0.0', port=6000, debug=True)
+
+
