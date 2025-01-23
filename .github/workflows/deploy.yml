@@ -18,10 +18,6 @@ jobs:
       with:
         ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
 
-    - name: Verify connection
-      run: |
-        ssh -o StrictHostKeyChecking=no adrianogarciagiraldamilena@34.175.121.121 "echo 'Conexión SSH exitosa'"
-
     - name: Deploy to VM
       run: |
         ssh -o StrictHostKeyChecking=no adrianogarciagiraldamilena@34.175.121.121 << 'EOF'
