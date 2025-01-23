@@ -1,0 +1,33 @@
+name: Deploy to Google Cloud VM
+
+on:
+  push:
+    branches:
+      - main  
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Set up SSH
+      uses: webfactory/ssh-agent@v0.5.3
+      with:
+        ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+    - name: Verify connection
+      run: |
+        ssh -o StrictHostKeyChecking=no adrianogarciagiraldamilena@34.175.121.121 "echo 'Conexión SSH exitosa'"
+
+    - name: Deploy to VM
+      run: |
+        ssh -o StrictHostKeyChecking=no adrianogarciagiraldamilena@34.175.121.121 << 'EOF'
+          cd  ./CC.2024-2025.Gestion-de-penas-de-futbol
+          git pull origin main
+          docker-compose pull
+          docker-compose down
+          docker-compose up -d --build
+        EOF
