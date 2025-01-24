@@ -86,3 +86,38 @@ En este hito se profundiza en cómo se realiza la **composición y orquestación
 
 📄 **Acceso a la documentación completa:**
 - [Hito 4 - Composición de Servicios](docs/hitos/hito4.md)
+
+
+# ⚙️ Hito 5: Despliegue
+En este hito, se realiza el despliegue de la aplicación en una plataforma PaaS o IaaS, automatizando y configurando sus servicios.
+
+### **Aspectos Principales:**
+
+#### **Elección de la Plataforma de Despliegue**
+
+- **Análisis de Alternativas:**  
+  Se analizan las diferentes opciones disponibles para desplegar la aplicación, considerando factores como escalabilidad, costos, facilidad de uso y soporte técnico.
+
+- **Justificación de la Selección:**  
+  Se explica por qué se ha elegido la plataforma seleccionada, ya sea PaaS o IaaS, y se justifican los criterios que llevaron a esta decisión. En caso de optar por un IaaS, se detallan las razones específicas que lo hicieron más adecuado para el proyecto.
+
+#### **Configuración Necesaria para el Despliegue**
+
+- **Pasos de Configuración:**  
+  Se documentan detalladamente los pasos necesarios para preparar y configurar la plataforma elegida, asegurando que la aplicación se despliegue correctamente. Esto incluye la configuración de recursos, redes, bases de datos y cualquier otro componente esencial.
+
+#### **Integración Continua del Despliegue**
+
+- **Automatización con GitHub Actions:**  
+  Se presenta el archivo YAML utilizado para configurar GitHub Actions, permitiendo el despliegue automático del servicio cada vez que se realicen cambios en el repositorio.
+
+- **Dependencias y Lógica del Action:**  
+  Se describen las dependencias necesarias y la lógica detrás del Action definido, asegurando una integración fluida y eficiente.
+
+#### **Demostración del Despliegue y Prueba de Estrés**
+
+- **Despliegue en Acción:**  
+  Se muestra el proceso de despliegue en la plataforma seleccionada y se realizan pruebas de estrés para asegurar que la aplicación puede manejar la carga esperada.
+
+📄 **Acceso a la documentación completa:**
+- [Hito 5 - Despliegue](docs/hitos/hito5.md)
