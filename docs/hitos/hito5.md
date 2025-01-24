@@ -22,7 +22,7 @@ Durante esta fase, se probaron las plataformas **Fluent** y **Render** como opci
    No fue posible exponer correctamente el servicio de Grafana, una funcionalidad clave para nuestro proyecto.
 
 Debido a estas limitaciones, se descartaron las opciones PaaS y se decidió probar con proveedores IaaS.
-
+![MV](/docs/images/render.png)  
 #### **Justificación de la Selección**  
 Después de evaluar los principales servicios IaaS (AWS, Azure y Google Cloud), se optó por **Google Cloud** debido a:
 
