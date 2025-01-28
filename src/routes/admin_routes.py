@@ -443,8 +443,8 @@ def visualizar_temporada(id_temporada):
                 JT.DERR,
                 (JT.VICT * 3 + JT.EMP * 2 + JT.DERR * 1) AS Puntos,
                 ROUND(
-                    CAST(JT.VICT AS FLOAT)
-                    / NULLIF(JT.VICT + JT.EMP + JT.DERR, 0) * 100,
+                    CAST(JT.VICT AS NUMERIC)
+                    / NULLIF(JT.VICT + JT.EMP + JT.DERR, 0)::NUMERIC * 100,
                     2
                 ) AS Porcentaje_victorias
             FROM JUGADORTEMPORADA JT
@@ -481,7 +481,7 @@ def visualizar_temporada(id_temporada):
                 JP.Mote,
                 COALESCE(SUM(EJ.Goles), 0) AS Total_Goles,
                 COALESCE(SUM(EJ.Asistencias), 0) AS Total_Asistencias,
-                COALESCE(ROUND(AVG(EJ.Val), 2), 0) AS Valoracion_Promedio
+                COALESCE(ROUND(AVG(EJ.Val)::NUMERIC, 2), 0) AS Valoracion_Promedio
             FROM JUGADORPENA JP
             LEFT JOIN EJUGADOR EJ ON JP.Idjugador = EJ.Idjugador
             LEFT JOIN EQUIPO E ON EJ.Ide = E.Ide
