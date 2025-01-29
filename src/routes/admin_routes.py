@@ -541,16 +541,13 @@ def visualizar_temporada(id_temporada):
         return jsonify({"error": "Error al cargar la temporada"}), 500
 
 
-# -----------------------------------------
-# DRAFT DE PARTIDO
-# -----------------------------------------
 @admin_bp.route('/draft_partido/<int:id_temporada>', methods=['GET', 'POST'])
 @admin_required
 def draft_partido(id_temporada):
     """
     GET: Retorna los jugadores disponibles en la temporada (lista de JUGADORTEMPORADA).
     POST: 
-      - Si incluye "convocar", guarda la lista de convocados en session['convocados'] (no muy REST, pero ejemplo).
+      - Si incluye "convocar", guarda la lista de convocados en session['convocados'].
       - Si incluye "crear_partido", crea un partido con dos equipos y sus estadísticas.
     """
     id_pena = session['Idpena']
@@ -589,7 +586,7 @@ def draft_partido(id_temporada):
                 if repetidos:
                     cursor.close()
                     conn.close()
-                    return jsonify({"error": f"Jugadores repetidos en ambos equipos: {repetidos}"}), 400
+                    return jsonify({"error": f"Jugadores repetidos en ambos equipos: {list(repetidos)}"}), 400
 
                 if len(equipo_1) < 1 or len(equipo_2) < 1:
                     cursor.close()
@@ -609,15 +606,15 @@ def draft_partido(id_temporada):
                 """, (id_pena, id_temporada))
                 id_partido = cursor.fetchone()[0]
 
-                # Crear equipo 1 y equipo 2
+                # Crear equipo 1 y equipo 2 con Ide=1 y Ide=2 respectivamente
                 cursor.execute("""
                     INSERT INTO EQUIPO (Ide, Idp, Idpena, Idt)
-                    VALUES (1, %s, %s, %s)
-                """, (id_partido, id_pena, id_temporada))
+                    VALUES (%s, %s, %s, %s)
+                """, (1, id_partido, id_pena, id_temporada))
                 cursor.execute("""
                     INSERT INTO EQUIPO (Ide, Idp, Idpena, Idt)
-                    VALUES (2, %s, %s, %s)
-                """, (id_partido, id_pena, id_temporada))
+                    VALUES (%s, %s, %s, %s)
+                """, (2, id_partido, id_pena, id_temporada))
 
                 total_goles_equipo_1 = 0
                 total_goles_equipo_2 = 0
@@ -631,8 +628,8 @@ def draft_partido(id_temporada):
 
                     cursor.execute("""
                         INSERT INTO EJUGADOR (Ide, Idp, Idjugador, Goles, Asistencias, Val)
-                        VALUES (1, %s, %s, %s, %s, %s)
-                    """, (id_partido, j_id, goles, asistencias, val))
+                        VALUES (%s, %s, %s, %s, %s, %s)
+                    """, (1, id_partido, j_id, goles, asistencias, val))
 
                 # Registrar stats de equipo_2
                 for j_id in equipo_2:
@@ -643,8 +640,8 @@ def draft_partido(id_temporada):
 
                     cursor.execute("""
                         INSERT INTO EJUGADOR (Ide, Idp, Idjugador, Goles, Asistencias, Val)
-                        VALUES (2, %s, %s, %s, %s, %s)
-                    """, (id_partido, j_id, goles, asistencias, val))
+                        VALUES (%s, %s, %s, %s, %s, %s)
+                    """, (2, id_partido, j_id, goles, asistencias, val))
 
                 # Determinar resultado
                 resultado_equipo_1 = 0
